@@ -28,7 +28,7 @@ export default function HomePage() {
               bgClip="text"
               textAlign="center"
             >
-              Bem-vindo ao 18Games
+              Bem-vindo ao 18Games 🎮
             </Text>
             
             <Text fontSize="xl" color="gray.300" textAlign="center" lineHeight="tall">
