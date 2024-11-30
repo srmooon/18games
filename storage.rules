@@ -1,0 +1,30 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Função auxiliar para verificar se o usuário está autenticado
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Função auxiliar para verificar se é o próprio usuário
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Regras para fotos de perfil
+    match /profile-photos/{userId} {
+      // Permite leitura por qualquer usuário autenticado
+      allow read: if isAuthenticated();
+      // Permite upload apenas pelo próprio usuário
+      allow write: if isOwner(userId);
+    }
+
+    // Regras para banners de perfil
+    match /profile-banners/{userId} {
+      // Permite leitura por qualquer usuário autenticado
+      allow read: if isAuthenticated();
+      // Permite upload apenas pelo próprio usuário
+      allow write: if isOwner(userId);
+    }
+  }
+}

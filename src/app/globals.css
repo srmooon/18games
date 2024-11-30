@@ -1,0 +1,77 @@
+/* Animações para badges e avatares */
+@keyframes gradient {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+@keyframes adminGradient {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+@keyframes rotate {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes adminRotate {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.vip-plus-badge {
+  background-size: 200% 200%;
+}
+
+.admin-badge {
+  background-size: 200% 200%;
+}
+
+.vip-plus-avatar::before {
+  content: '';
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  bottom: -4px;
+  left: -4px;
+  background: linear-gradient(45deg, #FF6B6B, #4834D4);
+  border-radius: 50%;
+  z-index: -1;
+  animation: rotate 3s linear infinite;
+}
+
+.admin-avatar::before {
+  content: '';
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  bottom: -4px;
+  left: -4px;
+  background: linear-gradient(45deg, #FF0000, #000000);
+  border-radius: 50%;
+  z-index: -1;
+  animation: adminRotate 5s linear infinite;
+  box-shadow: 0 0 15px rgba(255,0,0,0.5);
+}
