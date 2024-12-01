@@ -15,25 +15,25 @@ const teamMembers: TeamMember[] = [
   {
     name: 'Baphomet',
     role: 'Dono',
-    image: 'https://i.imgur.com/O0VIhc6.jpeg',
+    image: 'https://files.catbox.moe/tqrqtt.jpg',
     roleColor: 'red.500'
   },
   {
     name: 'Hawtch',
     role: 'Administrador',
-    image: 'https://i.imgur.com/dnRq2W2.jpeg',
+    image: 'https://files.catbox.moe/0gv56s.jpg',
     roleColor: 'purple.500'
   },
   {
     name: 'Zero',
     role: 'Moderador',
-    image: 'https://i.imgur.com/ozUxsXg.jpeg',
+    image: 'https://files.catbox.moe/9eu9xu.jpg',
     roleColor: 'blue.500'
   },
   {
     name: 'Sr.Moon',
     role: 'Desenvolvedor',
-    image: 'https://i.imgur.com/WJEYOnq.gif',
+    image: 'https://files.catbox.moe/qc1pnz.gif',
     roleColor: 'brand.500'
   }
 ];

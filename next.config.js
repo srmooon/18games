@@ -2,7 +2,7 @@
 const nextConfig = {
   output: 'standalone',
   images: {
-    domains: ['res.cloudinary.com'],
+    domains: ['res.cloudinary.com', 'i.imgur.com', 'files.catbox.moe'],
     unoptimized: true
   },
   typescript: {
