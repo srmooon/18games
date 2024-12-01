@@ -1,54 +1,69 @@
-import { useRouter, useSearchParams } from 'next/navigation';
+'use client';
+
+import { useRouter, useSearchParams, useEffect } from 'next/navigation';
 import { useToast } from '@/components/ui/use-toast';
-import { auth } from '@/firebase/config';
-import { applyActionCode } from 'firebase/auth';
+import { auth, db } from '@/config/firebase';
+import { doc, updateDoc } from 'firebase/firestore';
 
 export default function VerifyEmailContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const toast = useToast();
-  const oobCode = searchParams.get('oobCode');
+  const { toast } = useToast();
+  const email = searchParams.get('email');
+  const userId = searchParams.get('userId');
 
   const verifyEmail = async () => {
-    if (!oobCode) {
+    if (!email || !userId) {
       toast({
         title: "Erro",
-        description: "Código de verificação inválido",
+        description: "Link de verificação inválido",
         variant: "destructive",
       });
-      router.push('/login');
+      router.push('/register');
       return;
     }
 
     try {
-      await applyActionCode(auth, oobCode);
-      toast({
-        title: "Email verificado",
-        description: "Seu email foi verificado com sucesso!",
+      // Atualizar o status de verificação no Firestore
+      const userRef = doc(db, 'users', userId);
+      await updateDoc(userRef, {
+        isEmailVerified: true
       });
+
+      // Redirecionar para login
       router.push('/login');
+
+      toast({
+        title: "Sucesso!",
+        description: "Email verificado com sucesso! Você já pode fazer login.",
+      });
     } catch (error) {
+      console.error('Erro ao verificar email:', error);
       toast({
         title: "Erro",
-        description: "Erro ao verificar email",
+        description: "Não foi possível verificar seu email. Tente novamente.",
         variant: "destructive",
       });
-      router.push('/login');
+      router.push('/register');
     }
   };
 
-  // Verificar email assim que o componente carregar
-  if (oobCode) {
+  // Chamar verifyEmail assim que o componente montar
+  useEffect(() => {
     verifyEmail();
-  }
+  }, []);
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-background">
-      <div className="max-w-md w-full p-6 space-y-4 bg-card rounded-lg shadow-lg">
-        <h1 className="text-2xl font-bold text-center">Verificando seu Email</h1>
-        <p className="text-center text-muted-foreground">
-          Por favor, aguarde enquanto verificamos seu email...
-        </p>
+    <div className="min-h-screen flex items-center justify-center bg-gray-100">
+      <div className="max-w-md w-full space-y-8 p-10 bg-white rounded-xl shadow-lg">
+        <div className="text-center">
+          <h2 className="mt-6 text-3xl font-bold text-gray-900">
+            Verificando seu email
+          </h2>
+          <p className="mt-2 text-sm text-gray-600">
+            Aguarde enquanto verificamos seu email...
+          </p>
+        </div>
       </div>
     </div>
   );

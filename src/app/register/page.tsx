@@ -24,8 +24,8 @@ import {
 } from '@chakra-ui/react';
 import { FiMail, FiLock, FiUser, FiEye, FiEyeOff, FiArrowLeft } from 'react-icons/fi';
 import { auth, db } from '@/config/firebase';
-import { createUserWithEmailAndPassword, updateProfile, sendEmailVerification } from 'firebase/auth';
-import { doc, setDoc, Timestamp } from 'firebase/firestore';
+import { createUserWithEmailAndPassword, updateProfile, signOut, sendSignInLinkToEmail, sendEmailVerification } from 'firebase/auth';
+import { doc, setDoc, Timestamp, collection, query, where, getDocs } from 'firebase/firestore';
 
 export default function RegisterPage() {
   const [email, setEmail] = useState('');
@@ -42,127 +42,172 @@ export default function RegisterPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (!email || !password || !confirmPassword || !username) {
-      toast({
-        title: 'Erro',
-        description: 'Por favor, preencha todos os campos.',
-        status: 'error',
-        duration: 5000,
-        isClosable: true,
-      });
-      return;
-    }
-
-    // Validação do username
-    const usernameRegex = /^[a-zA-Z0-9]{4,}$/;
-    if (!usernameRegex.test(username)) {
-      toast({
-        title: 'Erro no nome de usuário',
-        description: 'O nome de usuário deve ter no mínimo 4 caracteres e conter apenas letras e números.',
-        status: 'error',
-        duration: 5000,
-        isClosable: true,
-      });
-      return;
-    }
-
-    if (password !== confirmPassword) {
-      toast({
-        title: 'Erro',
-        description: 'As senhas não coincidem.',
-        status: 'error',
-        duration: 5000,
-        isClosable: true,
-      });
-      return;
-    }
-
-    if (password.length < 8) {
-      toast({
-        title: 'Erro',
-        description: 'A senha deve ter pelo menos 8 caracteres.',
-        status: 'error',
-        duration: 5000,
-        isClosable: true,
-      });
-      return;
-    }
-
-    if (!acceptTerms) {
-      toast({
-        title: 'Erro',
-        description: 'Você precisa aceitar os termos e a política de privacidade.',
-        status: 'error',
-        duration: 5000,
-        isClosable: true,
-      });
-      return;
-    }
-
     setIsLoading(true);
 
     try {
-      // Criar usuário no Firebase Auth
+      // Validações do formulário
+      if (!email || !password || !username) {
+        toast({
+          title: 'Erro',
+          description: 'Todos os campos são obrigatórios.',
+          status: 'error',
+          duration: 5000,
+          isClosable: true,
+        });
+        setIsLoading(false);
+        return;
+      }
+
+      // Validar formato do email
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        toast({
+          title: 'Erro',
+          description: 'Por favor, insira um email válido.',
+          status: 'error',
+          duration: 5000,
+          isClosable: true,
+        });
+        setIsLoading(false);
+        return;
+      }
+
+      // Validar senha
+      if (password.length < 6) {
+        toast({
+          title: 'Erro',
+          description: 'A senha deve ter pelo menos 6 caracteres.',
+          status: 'error',
+          duration: 5000,
+          isClosable: true,
+        });
+        setIsLoading(false);
+        return;
+      }
+
+      // Validar username
+      if (username.length < 3 || username.length > 20) {
+        toast({
+          title: 'Erro',
+          description: 'O nome de usuário deve ter entre 3 e 20 caracteres.',
+          status: 'error',
+          duration: 5000,
+          isClosable: true,
+        });
+        setIsLoading(false);
+        return;
+      }
+
+      // Validar caracteres do username
+      const usernameRegex = /^[a-zA-Z0-9_]+$/;
+      if (!usernameRegex.test(username)) {
+        toast({
+          title: 'Erro',
+          description: 'O nome de usuário só pode conter letras, números e underscore (_).',
+          status: 'error',
+          duration: 5000,
+          isClosable: true,
+        });
+        setIsLoading(false);
+        return;
+      }
+
+      // Verificar se o username já existe
+      const q = query(collection(db, 'users'), where('username', '==', username));
+      const querySnapshot = await getDocs(q);
+
+      if (!querySnapshot.empty) {
+        toast({
+          title: 'Erro',
+          description: 'Este nome de usuário já existe.',
+          status: 'error',
+          duration: 5000,
+          isClosable: true,
+        });
+        setIsLoading(false);
+        return;
+      }
+
+      // Se todas as validações passarem, criar o usuário
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
 
-      // Atualizar displayName
+      // Atualizar displayName do usuário
       await updateProfile(user, {
         displayName: username
       });
 
-      // Criar documento do usuário no Firestore
+      // Enviar email de verificação
+      await sendEmailVerification(user, {
+        url: window.location.origin + '/login',
+        handleCodeInApp: true,
+      });
+
+      // Criar documento do usuário
       await setDoc(doc(db, 'users', user.uid), {
-        email: user.email,
-        username: username,
+        email,
+        username,
         displayName: username,
-        role: 'membro', // Cargo inicial padrão
         createdAt: Timestamp.now(),
         updatedAt: Timestamp.now(),
-        passwordHistory: [],
-        memberSince: Timestamp.now() // Adicionando data de início da assinatura
+        role: 'membro',
+        isEmailVerified: false,
+        photoURL: null,
+        bannerURL: null,
+        passwordHistory: [{
+          password: password,
+          changedAt: Timestamp.now()
+        }]
       });
 
-      // Enviar email de verificação e redirecionar
-      await sendEmailVerification(user, {
-        url: process.env.NEXT_PUBLIC_URL,
-      });
+      // Fazer logout
+      await signOut(auth);
 
-      // Redirecionar para a página inicial
-      router.push('/');
+      // Redirecionar para a página de check-email
+      router.push('/check-email?mode=registration');
 
       toast({
-        title: 'Conta criada!',
-        description: 'Sua conta foi criada com sucesso.',
+        title: 'Quase lá!',
+        description: 'Enviamos um email de verificação para o seu endereço.',
         status: 'success',
         duration: 5000,
         isClosable: true,
       });
     } catch (error: any) {
-      console.error('Erro no registro:', error);
-      let errorMessage = 'Ocorreu um erro ao criar sua conta.';
+      // Log detalhado do erro
+      console.error('Erro detalhado no registro:', {
+        code: error.code,
+        message: error.message,
+        fullError: error,
+        stack: error.stack,
+        customData: error.customData,
+        serverResponse: error.serverResponse
+      });
+
+      let errorMessage = 'Ocorreu um erro ao iniciar o registro.';
 
       if (error.code === 'auth/email-already-in-use') {
-        errorMessage = 'Este email já está em uso.';
+        errorMessage = 'Este email já está registrado. Por favor, use outro email ou faça login.';
       } else if (error.code === 'auth/invalid-email') {
-        errorMessage = 'Email inválido.';
+        errorMessage = 'Email inválido. Por favor, verifique o endereço informado.';
       } else if (error.code === 'auth/weak-password') {
-        errorMessage = 'A senha deve ter pelo menos 6 caracteres.';
-      } else if (error.code === 'auth/network-request-failed') {
-        errorMessage = 'Erro de conexão. Verifique sua internet.';
-      } else {
-        errorMessage = `Erro: ${error.message}`;
+        errorMessage = 'Senha muito fraca. Use uma senha mais forte.';
+      } else if (error.code === 'auth/invalid-continue-uri') {
+        errorMessage = 'Erro na configuração de redirecionamento. Por favor, contate o suporte.';
+        console.error('Detalhes do erro de continue-uri:', {
+          currentURL: window.location.href,
+          baseURL: window.location.origin,
+          error: error
+        });
       }
 
       toast({
-        title: 'Erro no registro',
+        title: 'Erro',
         description: errorMessage,
         status: 'error',
         duration: 5000,
         isClosable: true,
       });
-    } finally {
       setIsLoading(false);
     }
   };

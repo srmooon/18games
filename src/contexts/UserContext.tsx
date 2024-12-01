@@ -37,65 +37,66 @@ export const UserContextProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        try {
-          // Verificar status do usuário no Firestore
-          const userDoc = await getDoc(doc(db, 'users', user.uid));
-          const userData = userDoc.data();
-          
-          if (userData?.status === 'banned') {
-            // Se o usuário estiver banido, fazer logout
-            await signOut(auth);
-            toast({
-              title: 'Acesso Negado',
-              description: 'Sua conta foi banida. Entre em contato com o suporte para mais informações.',
-              status: 'error',
-              duration: 5000,
-              isClosable: true,
-            });
-            setUser(null);
-            setProfile(null);
-            setLoading(false);
-            return;
-          }
-          
-          if (userData?.status === 'disabled') {
-            // Se a conta estiver desabilitada, fazer logout
-            await signOut(auth);
-            toast({
-              title: 'Conta Desabilitada',
-              description: 'Sua conta está temporariamente desabilitada. Entre em contato com o suporte para reativá-la.',
-              status: 'warning',
-              duration: 5000,
-              isClosable: true,
-            });
-            setUser(null);
-            setProfile(null);
-            setLoading(false);
-            return;
-          }
-          
-          setUser(user);
-          setProfile({
-            uid: user.uid,
-            email: user.email || '',
-            displayName: userData.displayName || '',
-            username: userData.username || '',
-            photoURL: userData.photoURL || '',
-            bannerURL: userData.bannerURL || '',
-            role: userData.role || 'user',
-            status: userData.status || 'active'
-          });
-        } catch (error) {
-          console.error('Erro ao verificar status do usuário:', error);
-          setUser(null);
-          setProfile(null);
-        }
-      } else {
+      if (!user) {
         setUser(null);
         setProfile(null);
+        setLoading(false);
+        return;
       }
-      setLoading(false);
+
+      const userDoc = await getDoc(doc(db, 'users', user.uid));
+      const userData = userDoc.data();
+
+      if (!userData) {
+        setUser(null);
+        setProfile(null);
+        setLoading(false);
+        return;
+      }
+
+      if (userData?.status === 'banned') {
+        // Se o usuário estiver banido, fazer logout
+        await signOut(auth);
+        toast({
+          title: 'Acesso Negado',
+          description: 'Sua conta foi banida. Entre em contato com o suporte para mais informações.',
+          status: 'error',
+          duration: 5000,
+          isClosable: true,
+        });
+        setUser(null);
+        setProfile(null);
+        setLoading(false);
+        return;
+      }
+
+      if (userData?.status === 'disabled') {
+        // Se a conta estiver desabilitada, fazer logout
+        await signOut(auth);
+        toast({
+          title: 'Conta Desabilitada',
+          description: 'Sua conta está temporariamente desabilitada. Entre em contato com o suporte para reativá-la.',
+          status: 'warning',
+          duration: 5000,
+          isClosable: true,
+        });
+        setUser(null);
+        setProfile(null);
+        setLoading(false);
+        return;
+      }
+
+      setUser(user);
+      setProfile({
+        uid: user.uid,
+        email: user.email || '',
+        displayName: userData.displayName || '',
+        username: userData.username || '',
+        photoURL: userData.photoURL || '',
+        bannerURL: userData.bannerURL || '',
+        role: userData.role || 'user',
+        status: userData.status || 'active'
+      });
     });
 
     return () => unsubscribe();

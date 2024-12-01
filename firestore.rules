@@ -1,16 +1,29 @@
 rules_version = '2';
-
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Funções auxiliares
+    // Função auxiliar para verificar se o usuário está autenticado
     function isAuthenticated() {
       return request.auth != null;
     }
     
+    // Função auxiliar para verificar se é o próprio usuário
     function isOwner(userId) {
-      return request.auth.uid == userId;
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    // Função auxiliar para verificar se a consulta é por username
+    function isUsernameQuery() {
+      return request.query.filters.size() == 1 
+        && request.query.filters[0].op == '==' 
+        && request.query.filters[0].field == 'username';
     }
 
+    // Função auxiliar para verificar se é o autor do post
+    function isPostAuthor(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Função auxiliar para verificar se é admin
     function isAdmin() {
       return isAuthenticated() && 
         exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
@@ -19,26 +32,57 @@ service cloud.firestore {
 
     // Regras para estatísticas
     match /statistics/{docId} {
-      allow read: if isAdmin();
-      allow write: if isAdmin();
+      allow read, write: if isAdmin();
+    }
+
+    // Regras para a coleção users
+    match /users/{userId} {
+      // Permite leitura pública dos perfis
+      allow read: if true;
+      allow list: if isUsernameQuery(); // Adicionado para permitir verificação de username
+      
+      // Permite criação e atualização pelo próprio usuário ou admin
+      allow create: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
+      allow update: if isAuthenticated() && (
+        request.auth.uid == userId || 
+        (isAdmin() && !resource.data.role.matches('admin')) // Admin não pode modificar outro admin
+      );
+      
+      // Permite deleção apenas por admin e não permite deletar admins
+      allow delete: if isAdmin() && !resource.data.role.matches('admin');
+    }
+
+    // Regras para usuários temporários durante registro
+    match /tempUsers/{email} {
+      allow read, write: if true;
     }
 
     // Regras para a coleção posts
     match /posts/{postId} {
+      // Permite leitura pública dos posts
       allow read: if true;
-      allow create: if isAuthenticated() 
-        && request.resource.data.userId == request.auth.uid
-        && request.resource.data.keys().hasAll(['title', 'description', 'mainImage', 'userId', 'createdAt'])
-        && request.resource.data.title is string
-        && request.resource.data.description is string;
-      allow update, delete: if isAuthenticated() && (isOwner(resource.data.userId) || isAdmin());
+      
+      // Permite criação por usuários autenticados
+      allow create: if isAuthenticated();
+      
+      // Permite atualização e deleção pelo autor do post ou admin
+      allow update, delete: if isAuthenticated() && (
+        isPostAuthor(resource.data.userId) || 
+        isAdmin()
+      );
     }
+  }
+}
 
-    // Regras para perfis de usuário
-    match /users/{userId} {
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /{allPaths=**} {
       allow read: if true;
-      allow create, update: if isAuthenticated() && (isOwner(userId) || isAdmin());
-      allow delete: if isAdmin();
+      allow write: if isAuthenticated() && 
+        (request.auth.token.role == 'admin' || 
+         request.auth.token.role == 'membro+');
+      allow delete: if isAuthenticated() && 
+        request.auth.token.role == 'admin';
     }
   }
 }

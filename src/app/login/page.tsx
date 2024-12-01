@@ -24,12 +24,11 @@ import {
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { signInWithEmailAndPassword, sendEmailVerification } from 'firebase/auth';
+import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '@/config/firebase';
 import { useRouter } from 'next/navigation';
 import { FiMail, FiLock, FiEye, FiEyeOff } from 'react-icons/fi';
 import { useState } from 'react';
-import { getUser } from '@/lib/db';
 
 interface LoginForm {
   email: string;
@@ -72,29 +71,9 @@ export default function LoginPage() {
         data.password
       );
 
-      // Verifica se o email foi verificado
-      if (!userCredential.user.emailVerified) {
-        await sendEmailVerification(userCredential.user);
-        toast({
-          title: 'Email não verificado',
-          description: 'Enviamos um novo email de verificação. Por favor, verifique sua caixa de entrada.',
-          status: 'warning',
-          duration: 5000,
-          position: 'top-right',
-        });
-        router.push('/verify-email');
-        return;
-      }
-
-      // Busca dados adicionais do usuário
-      const userData = await getUser(userCredential.user.uid);
-      if (!userData) {
-        throw new Error('Erro ao recuperar dados do usuário');
-      }
-
       toast({
         title: 'Login realizado com sucesso!',
-        description: `Bem-vindo${userData?.displayName ? `, ${userData.displayName}` : ''}!`,
+        description: 'Bem-vindo!',
         status: 'success',
         duration: 3000,
         position: 'top-right',
