@@ -54,6 +54,19 @@ export default function RegisterPage() {
       return;
     }
 
+    // Validação do username
+    const usernameRegex = /^[a-zA-Z0-9]{4,}$/;
+    if (!usernameRegex.test(username)) {
+      toast({
+        title: 'Erro no nome de usuário',
+        description: 'O nome de usuário deve ter no mínimo 4 caracteres e conter apenas letras e números.',
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      });
+      return;
+    }
+
     if (password !== confirmPassword) {
       toast({
         title: 'Erro',
@@ -65,10 +78,10 @@ export default function RegisterPage() {
       return;
     }
 
-    if (password.length < 6) {
+    if (password.length < 8) {
       toast({
         title: 'Erro',
-        description: 'A senha deve ter pelo menos 6 caracteres.',
+        description: 'A senha deve ter pelo menos 8 caracteres.',
         status: 'error',
         duration: 5000,
         isClosable: true,
