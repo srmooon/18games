@@ -3,7 +3,7 @@ export const tagCategories = [
   { 
     id: 'game-engine',
     label: 'Engine do Jogo',
-    tags: ['renpy', 'unity', 'unreal', 'rpgmaker', 'godot', 'html5', 'custom-engine']
+    tags: ['renpy', 'unity', 'unreal', 'rpgmaker', 'godot', 'html5', 'custom-engine', 'kirikiri', 'tyranobuilder']
   },
   { 
     id: 'visual-novel',
@@ -67,6 +67,8 @@ export const gameTags = [
   { id: 'godot', label: 'Godot', color: 'green' },
   { id: 'html5', label: 'HTML5', color: 'orange' },
   { id: 'custom-engine', label: 'Engine Customizada', color: 'cyan' },
+  { id: 'kirikiri', label: 'KiriKiri', color: 'teal' },
+  { id: 'tyranobuilder', label: 'TyranoBuilder', color: 'pink' },
 
   // Visual Novel
   { id: 'multiple-routes', label: 'Múltiplas Rotas', color: 'pink' },
