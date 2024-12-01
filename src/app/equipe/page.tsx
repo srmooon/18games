@@ -21,7 +21,7 @@ const teamMembers: TeamMember[] = [
   {
     name: 'Hawtch',
     role: 'Administrador',
-    image: 'https://files.catbox.moe/0gv56s.jpg',
+    image: 'https://res.cloudinary.com/dbqhflj6w/image/upload/v1733021316/musuucb7dlcwyde1yjf9.gif',
     roleColor: 'purple.500'
   },
   {

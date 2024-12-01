@@ -24,9 +24,8 @@ import {
 } from '@chakra-ui/react';
 import { FiMail, FiLock, FiUser, FiEye, FiEyeOff, FiArrowLeft } from 'react-icons/fi';
 import { auth, db } from '@/config/firebase';
-import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
+import { createUserWithEmailAndPassword, updateProfile, sendEmailVerification } from 'firebase/auth';
 import { doc, setDoc, Timestamp } from 'firebase/firestore';
-import { sendEmailVerification } from 'firebase/auth';
 
 export default function RegisterPage() {
   const [email, setEmail] = useState('');
@@ -37,13 +36,13 @@ export default function RegisterPage() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  
+
   const router = useRouter();
   const toast = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!email || !password || !confirmPassword || !username) {
       toast({
         title: 'Erro',
@@ -109,20 +108,20 @@ export default function RegisterPage() {
         createdAt: Timestamp.now(),
         updatedAt: Timestamp.now(),
         passwordHistory: [],
-        isEmailVerified: true,
         memberSince: Timestamp.now() // Adicionando data de início da assinatura
       });
 
       // Enviar email de verificação e redirecionar
       await sendEmailVerification(user, {
-        url: window.location.origin + '/verify-email'
+        url: process.env.NEXT_PUBLIC_URL,
       });
 
-      router.push('/check-email?mode=registration');
+      // Redirecionar para a página inicial
+      router.push('/');
 
       toast({
         title: 'Conta criada!',
-        description: 'Verifique seu email para ativar sua conta.',
+        description: 'Sua conta foi criada com sucesso.',
         status: 'success',
         duration: 5000,
         isClosable: true,
@@ -130,7 +129,7 @@ export default function RegisterPage() {
     } catch (error: any) {
       console.error('Erro no registro:', error);
       let errorMessage = 'Ocorreu um erro ao criar sua conta.';
-      
+
       if (error.code === 'auth/email-already-in-use') {
         errorMessage = 'Este email já está em uso.';
       } else if (error.code === 'auth/invalid-email') {
