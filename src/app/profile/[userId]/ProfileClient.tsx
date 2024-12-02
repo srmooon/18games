@@ -39,6 +39,7 @@ import {
 import { db } from '@/config/firebase';
 import { CldUploadWidget } from 'next-cloudinary';
 import { useUserContext } from '@/contexts/UserContext';
+import Link from 'next/link';
 
 interface Rating {
   userId: string;
@@ -121,6 +122,7 @@ export default function ProfileClient({ userId }: { userId: string }) {
       
       const postsSnap = await getDocs(postsQuery);
       const posts = postsSnap.docs.map(doc => ({
+
         id: doc.id,
         ...doc.data()
       })) as Post[];
@@ -589,35 +591,43 @@ export default function ProfileClient({ userId }: { userId: string }) {
               </Text>
               <Grid templateColumns="repeat(3, 1fr)" gap={4}>
                 {profile.posts.map((post) => (
-                  <Box
-                    key={post.id}
-                    bg={cardBg}
-                    rounded="lg"
-                    overflow="hidden"
-                    shadow="md"
+                  <Link 
+                    key={post.id} 
+                    href={`/jogos/${post.id}`}
+                    style={{ textDecoration: 'none' }}
                   >
-                    <Image
-                      src={post.mainImage}
-                      alt={post.title}
-                      w="full"
-                      h="200px"
-                      objectFit="cover"
-                    />
-                    <Box p={4}>
-                      <Text fontWeight="bold" mb={2}>{post.title}</Text>
-                      <HStack mt={2} spacing={2}>
-                        <StarIcon color="yellow.400" />
-                        <Text>
-                          {post.ratings && post.ratings.length > 0
-                            ? (post.ratings.reduce((sum, r) => sum + r.rating, 0) / post.ratings.length).toFixed(1)
-                            : '0.0'}
-                        </Text>
-                        <Text color={gray500}>
-                          ({post.ratings?.length || 0})
-                        </Text>
-                      </HStack>
+                    <Box
+                      bg={cardBg}
+                      rounded="lg"
+                      overflow="hidden"
+                      shadow="md"
+                      transition="transform 0.2s"
+                      _hover={{ transform: 'scale(1.02)' }}
+                      cursor="pointer"
+                    >
+                      <Image
+                        src={post.mainImage}
+                        alt={post.title}
+                        w="full"
+                        h="200px"
+                        objectFit="cover"
+                      />
+                      <Box p={4}>
+                        <Text fontWeight="bold" mb={2}>{post.title}</Text>
+                        <HStack mt={2} spacing={2}>
+                          <StarIcon color="yellow.400" />
+                          <Text>
+                            {post.ratings && post.ratings.length > 0
+                              ? (post.ratings.reduce((sum, r) => sum + r.rating, 0) / post.ratings.length).toFixed(1)
+                              : '0.0'}
+                          </Text>
+                          <Text color={gray500}>
+                            ({post.ratings?.length || 0})
+                          </Text>
+                        </HStack>
+                      </Box>
                     </Box>
-                  </Box>
+                  </Link>
                 ))}
               </Grid>
             </Box>
