@@ -37,29 +37,73 @@ export const UserContextProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (!user) {
-        setUser(null);
-        setProfile(null);
+      try {
+        if (!user) {
+          setUser(null);
+          setProfile(null);
+          setLoading(false);
+          return;
+        }
+
+        const userDoc = await getDoc(doc(db, 'users', user.uid));
+        const userData = userDoc.data();
+
+        if (!userData) {
+          setUser(null);
+          setProfile(null);
+          setLoading(false);
+          return;
+        }
+
+        if (userData?.status === 'banned') {
+          // Se o usuário estiver banido, fazer logout
+          await signOut(auth);
+          toast({
+            title: 'Acesso Negado',
+            description: 'Sua conta foi banida. Entre em contato com o suporte para mais informações.',
+            status: 'error',
+            duration: 5000,
+            isClosable: true,
+          });
+          setUser(null);
+          setProfile(null);
+          setLoading(false);
+          return;
+        }
+
+        if (userData?.status === 'disabled') {
+          // Se a conta estiver desabilitada, fazer logout
+          await signOut(auth);
+          toast({
+            title: 'Conta Desabilitada',
+            description: 'Sua conta está temporariamente desabilitada. Entre em contato com o suporte para reativá-la.',
+            status: 'warning',
+            duration: 5000,
+            isClosable: true,
+          });
+          setUser(null);
+          setProfile(null);
+          setLoading(false);
+          return;
+        }
+
+        setUser(user);
+        setProfile({
+          uid: user.uid,
+          email: user.email || '',
+          displayName: userData.displayName || '',
+          username: userData.username || '',
+          photoURL: userData.photoURL || '',
+          bannerURL: userData.bannerURL || '',
+          role: userData.role || 'user',
+          status: userData.status || 'active'
+        });
         setLoading(false);
-        return;
-      }
-
-      const userDoc = await getDoc(doc(db, 'users', user.uid));
-      const userData = userDoc.data();
-
-      if (!userData) {
-        setUser(null);
-        setProfile(null);
-        setLoading(false);
-        return;
-      }
-
-      if (userData?.status === 'banned') {
-        // Se o usuário estiver banido, fazer logout
-        await signOut(auth);
+      } catch (error) {
+        console.error('Erro ao carregar perfil do usuário:', error);
         toast({
-          title: 'Acesso Negado',
-          description: 'Sua conta foi banida. Entre em contato com o suporte para mais informações.',
+          title: 'Erro',
+          description: 'Ocorreu um erro ao carregar seu perfil. Tente novamente mais tarde.',
           status: 'error',
           duration: 5000,
           isClosable: true,
@@ -67,36 +111,7 @@ export const UserContextProvider = ({ children }: { children: ReactNode }) => {
         setUser(null);
         setProfile(null);
         setLoading(false);
-        return;
       }
-
-      if (userData?.status === 'disabled') {
-        // Se a conta estiver desabilitada, fazer logout
-        await signOut(auth);
-        toast({
-          title: 'Conta Desabilitada',
-          description: 'Sua conta está temporariamente desabilitada. Entre em contato com o suporte para reativá-la.',
-          status: 'warning',
-          duration: 5000,
-          isClosable: true,
-        });
-        setUser(null);
-        setProfile(null);
-        setLoading(false);
-        return;
-      }
-
-      setUser(user);
-      setProfile({
-        uid: user.uid,
-        email: user.email || '',
-        displayName: userData.displayName || '',
-        username: userData.username || '',
-        photoURL: userData.photoURL || '',
-        bannerURL: userData.bannerURL || '',
-        role: userData.role || 'user',
-        status: userData.status || 'active'
-      });
     });
 
     return () => unsubscribe();
