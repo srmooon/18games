@@ -23,7 +23,12 @@ import {
   ModalCloseButton,
   IconButton,
   useDisclosure,
-  Link
+  Link,
+  SimpleGrid,
+  DownloadIcon,
+  TranslateIcon,
+  AddIcon,
+  RepeatIcon
 } from '@chakra-ui/react';
 import { FaDownload, FaStar, FaUser } from 'react-icons/fa';
 import { useRouter } from 'next/navigation';
@@ -501,12 +506,6 @@ export default function PostContent({ postId }: PostContentProps) {
               <Text fontSize="xl" fontWeight="bold" mb={4} color="white">
                 Downloads
               </Text>
-              {console.log('Download URLs:', { 
-                main: post.downloadUrl,
-                translation: post.translationUrl,
-                dlc: post.dlcUrl,
-                patch: post.patchUrl
-              })}
               <Grid templateColumns={{ base: "1fr", md: "repeat(4, 1fr)" }} gap={4}>
                 {/* Download Principal */}
                 {post.downloadUrl && (
@@ -532,7 +531,7 @@ export default function PostContent({ postId }: PostContentProps) {
                           width="100%"
                           leftIcon={<FaDownload />}
                         >
-                          mega
+                          {post.downloadSite || 'Download'}
                         </Button>
                       </VStack>
                     </Box>
@@ -541,9 +540,9 @@ export default function PostContent({ postId }: PostContentProps) {
 
                 {/* Downloads Opcionais */}
                 {[
-                  { id: 'translation', label: 'Tradução', url: post.translationUrl },
-                  { id: 'dlc', label: 'DLC', url: post.dlcUrl },
-                  { id: 'patch', label: 'Patch', url: post.patchUrl }
+                  { id: 'translation', label: 'Tradução', url: post.translationUrl, site: post.translationSite },
+                  { id: 'dlc', label: 'DLC', url: post.dlcUrl, site: post.dlcSite },
+                  { id: 'patch', label: 'Patch', url: post.patchUrl, site: post.patchSite }
                 ].map((type) => type.url && (
                   <GridItem key={type.id}>
                     <Box 
@@ -567,7 +566,7 @@ export default function PostContent({ postId }: PostContentProps) {
                           width="100%"
                           leftIcon={<FaDownload />}
                         >
-                          mega
+                          {type.site || type.label}
                         </Button>
                       </VStack>
                     </Box>
