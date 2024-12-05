@@ -44,12 +44,14 @@ import { ptBR } from 'date-fns/locale';
 import { useRouter } from 'next/navigation';
 import { Post } from '@/types/Post';
 import { useUserContext } from '@/contexts/UserContext';
+import CreatePost from '@/app/jogos/CreatePost';
 
 export default function PostManagement() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
-  const { isOpen, onOpen, onClose } = useDisclosure();
+  const { isOpen: isDeleteOpen, onOpen: onDeleteOpen, onClose: onDeleteClose } = useDisclosure();
+  const { isOpen: isEditOpen, onOpen: onEditOpen, onClose: onEditClose } = useDisclosure();
   const toast = useToast();
   const router = useRouter();
   const { profile } = useUserContext();
@@ -70,6 +72,7 @@ export default function PostManagement() {
       );
       const snapshot = await getDocs(postsQuery);
       const postsData = snapshot.docs.map(doc => ({
+
         id: doc.id,
         ...doc.data()
       })) as Post[];
@@ -89,12 +92,13 @@ export default function PostManagement() {
   };
 
   const handleEdit = (post: Post) => {
-    router.push(`/jogos/${post.id}`);
+    setSelectedPost(post);
+    onEditOpen();
   };
 
   const handleDeleteClick = (post: Post) => {
     setSelectedPost(post);
-    onOpen();
+    onDeleteOpen();
   };
 
   const handleAction = async () => {
@@ -126,7 +130,7 @@ export default function PostManagement() {
         isClosable: true,
       });
 
-      onClose();
+      onDeleteClose();
     } catch (error) {
       console.error('Error deleting post:', error);
       toast({
@@ -213,10 +217,33 @@ export default function PostManagement() {
         </Table>
       </Box>
 
+      {/* Modal de Edição */}
+      <CreatePost
+        isOpen={isEditOpen}
+        onClose={onEditClose}
+        editPost={selectedPost ? {
+          id: selectedPost.id || '',
+          title: selectedPost.title,
+          description: selectedPost.description,
+          mainImage: selectedPost.mainImage,
+          galleryImages: selectedPost.galleryImages || [],
+          downloadSite: selectedPost.downloadSite || '',
+          downloadUrl: selectedPost.downloadUrl || '',
+          tags: selectedPost.tags,
+          translationSite: selectedPost.translationSite,
+          translationUrl: selectedPost.translationUrl,
+          dlcSite: selectedPost.dlcSite,
+          dlcUrl: selectedPost.dlcUrl,
+          patchSite: selectedPost.patchSite,
+          patchUrl: selectedPost.patchUrl
+        } : undefined}
+      />
+
+      {/* Modal de Confirmação de Exclusão */}
       <AlertDialog
-        isOpen={isOpen}
+        isOpen={isDeleteOpen}
         leastDestructiveRef={undefined}
-        onClose={onClose}
+        onClose={onDeleteClose}
       >
         <AlertDialogOverlay>
           <AlertDialogContent>
@@ -229,7 +256,7 @@ export default function PostManagement() {
             </AlertDialogBody>
 
             <AlertDialogFooter>
-              <Button onClick={onClose}>
+              <Button onClick={onDeleteClose}>
                 Cancelar
               </Button>
               <Button colorScheme="red" onClick={handleAction} ml={3}>

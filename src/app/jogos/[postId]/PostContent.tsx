@@ -1,33 +1,61 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import {
   Box,
   Button,
-  Container,
   Text,
   Image,
-  Wrap,
-  IconButton,
+  useToast,
+  Grid,
+  GridItem,
+  Flex,
   HStack,
   VStack,
-  useToast,
-  Icon,
-  Tooltip,
-  AlertDialog,
-  AlertDialogBody,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogContent,
-  AlertDialogOverlay,
+  Tag,
+  Avatar,
+  Modal,
+  ModalOverlay,
+  ModalContent,
+  ModalHeader,
+  ModalFooter,
+  ModalBody,
+  ModalCloseButton,
+  IconButton,
   useDisclosure,
+  Link
 } from '@chakra-ui/react';
-import { FaStar, FaDownload, FaTimes } from 'react-icons/fa';
-import { doc, getDoc, updateDoc, arrayUnion, arrayRemove, deleteDoc, increment } from 'firebase/firestore';
-import { db } from '@/config/firebase';
-import { gameTags } from '@/constants/gameTags';
+import { FaDownload, FaStar, FaUser } from 'react-icons/fa';
 import { useRouter } from 'next/navigation';
+import { useAuthState } from 'react-firebase-hooks/auth';
+import { auth, db } from '@/config/firebase';
+import { doc, getDoc, updateDoc, increment, deleteDoc } from 'firebase/firestore';
 import { useUserContext } from '@/contexts/UserContext';
+import CreatePost from '../CreatePost';
+import { EditIcon, DeleteIcon } from '@chakra-ui/icons';
+
+interface Post {
+  id?: string;
+  title: string;
+  description: string;
+  mainImage: string;
+  galleryImages?: string[];
+  tags: string[];
+  ratings?: Rating[];
+  userId: string;
+  downloadSite?: string;
+  downloadUrl?: string;
+  translationSite?: string;
+  translationUrl?: string;
+  dlcSite?: string;
+  dlcUrl?: string;
+  patchSite?: string;
+  patchUrl?: string;
+  author?: {
+    name: string;
+    role: string;
+  };
+}
 
 interface Rating {
   userId: string;
@@ -35,40 +63,31 @@ interface Rating {
   timestamp: number;
 }
 
-interface Post {
-  id: string;
-  title: string;
-  description: string;
-  mainImage: string;
-  galleryImages: string[];
-  tags: string[];
-  createdAt: any;
-  userId: string;
-  username: string;
-  status: string;
-  ratings?: Rating[];
-  downloadSite?: string;
-  downloadUrl?: string;
-  userPhotoURL?: string;
-}
-
 interface PostContentProps {
   postId: string;
 }
 
 const downloadSites = [
-  { id: 'mega', label: 'Mega', domain: 'mega.nz' },
-  { id: 'mediafire', label: 'MediaFire', domain: 'mediafire.com' },
-  { id: 'drive', label: 'Google Drive', domain: 'drive.google.com' },
-  { id: 'dropbox', label: 'Dropbox', domain: 'dropbox.com' },
-  { id: 'onedrive', label: 'OneDrive', domain: 'onedrive.live.com' },
-  { id: 'pixeldrain', label: 'Pixeldrain', domain: 'pixeldrain.com' },
-  { id: 'catbox', label: 'Catbox', domain: 'files.catbox.moe' },
+  { id: 'mega', label: 'MEGA' },
+  { id: 'mediafile', label: 'MediaFire' },
+  { id: 'gdrive', label: 'Google Drive' },
+  { id: 'pixeldrain', label: 'Pixeldrain' },
+  { id: 'torrent', label: 'Torrent' },
+  { id: 'uptobox', label: 'Uptobox' },
+  { id: 'fichier', label: '1fichier' },
+  { id: 'zippyshare', label: 'Zippyshare' }
+];
+
+const optionalDownloads = [
+  { id: 'translation', label: 'Tradução' },
+  { id: 'dlc', label: 'DLC' },
+  { id: 'patch', label: 'Patch' }
 ];
 
 const getDownloadUrl = (url: string, site: string): string => {
+  if (!url || !site) return url;
   switch (site) {
-    case 'mediafire':
+    case 'mediafile':
       return url.includes('/download/') ? url : url.replace('/file/', '/download/');
     case 'mega':
       return url.includes('/file/') ? url : url.replace('#!', '/file/');
@@ -81,20 +100,140 @@ const getDownloadUrl = (url: string, site: string): string => {
     case 'pixeldrain':
       return url.includes('/api/file/') ? url : url.replace('/u/', '/api/file/') + '/download';
     case 'catbox':
-      return url; // Catbox já fornece link direto de download
+      return url;
     default:
       return url;
   }
 };
 
+const renderDownloadButton = (site: string, url: string, label: string) => {
+  const siteInfo = downloadSites.find(site => site.id === site);
+  if (!siteInfo || !url) return null;
+
+  const downloadUrl = getDownloadUrl(url, site);
+
+  return (
+    <Button
+      as="a"
+      href={downloadUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+      leftIcon={<Image src={siteInfo.id === 'mega' ? '/sites/mega.png' : siteInfo.id === 'mediafile' ? '/sites/mediafire.png' : siteInfo.id === 'gdrive' ? '/sites/drive.png' : '/sites/pixeldrain.png'} alt={siteInfo.label} boxSize="20px" />}
+      colorScheme="blue"
+      size="lg"
+      width="full"
+      mb={2}
+    >
+      {label}
+    </Button>
+  );
+};
+
+const linkify = (text: string) => {
+  // Regex melhorada para pegar URLs com ou sem protocolo
+  const urlRegex = /(https?:\/\/[^\s]+)|(?<!@)([a-zA-Z0-9][a-zA-Z0-9-]{1,61}[a-zA-Z0-9]\.[a-zA-Z]{2,}(?:\/[^\s]*)?)/g;
+  const parts = text.split(urlRegex);
+  
+  return parts.map((part, i) => {
+    if (part && part.match(urlRegex)) {
+      const url = part.startsWith('http') ? part : `https://${part}`;
+      return (
+        <Link 
+          key={i} 
+          href={url}
+          color="pink.400"
+          textDecoration="underline"
+          isExternal
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          {part}
+        </Link>
+      );
+    }
+    return part;
+  });
+};
+
 export default function PostContent({ postId }: PostContentProps) {
   const [post, setPost] = useState<Post | null>(null);
   const [userRating, setUserRating] = useState<number>(0);
+  const [selectedImage, setSelectedImage] = useState<string>('');
+  const { user: firebaseUser, profile } = useUserContext();
   const router = useRouter();
-  const { user, profile } = useUserContext();
   const toast = useToast();
-  const { isOpen, onOpen, onClose } = useDisclosure();
   const cancelRef = useRef<HTMLButtonElement>(null);
+  const { isOpen: isDeleteOpen, onOpen: onDeleteOpen, onClose: onDeleteClose } = useDisclosure();
+  const { isOpen: isImageOpen, onOpen: onImageOpen, onClose: onImageClose } = useDisclosure();
+  const { isOpen: isEditOpen, onOpen: onEditOpen, onClose: onEditClose } = useDisclosure();
+
+  // Efeito para carregar o post
+  useEffect(() => {
+    const loadPost = async () => {
+      if (!postId) return;
+
+      try {
+        const docRef = doc(db, 'posts', postId);
+        const docSnap = await getDoc(docRef);
+        
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          console.log('Post data:', data); // Debug
+          setPost({
+            id: postId,
+            title: data.title || '',
+            description: data.description || '',
+            mainImage: data.mainImage || '',
+            galleryImages: data.galleryImages || [],
+            tags: data.tags || [],
+            ratings: data.ratings || [],
+            userId: data.userId || '',
+            downloadSite: data.downloadSite || '',
+            downloadUrl: data.downloadUrl || '',
+            translationSite: data.translationSite || '',
+            translationUrl: data.translationUrl || '',
+            dlcSite: data.dlcSite || '',
+            dlcUrl: data.dlcUrl || '',
+            patchSite: data.patchSite || '',
+            patchUrl: data.patchUrl || '',
+            author: {
+              name: data.author?.name || '',
+              role: data.author?.role || ''
+            }
+          });
+          console.log('Post state:', post); // Debug
+        }
+      } catch (error) {
+        console.error('Erro ao buscar post:', error);
+        toast({
+          title: 'Erro ao carregar post',
+          description: 'Não foi possível carregar os dados do post.',
+          status: 'error',
+          duration: 3000,
+          isClosable: true,
+        });
+      }
+    };
+
+    loadPost();
+  }, [postId]); // Apenas postId como dependência
+
+  // Efeito para atualizar o rating do usuário
+  useEffect(() => {
+    if (!post?.ratings || !firebaseUser) return;
+    
+    const rating = post.ratings.find(r => r.userId === firebaseUser.uid);
+    if (rating) {
+      setUserRating(rating.rating);
+    }
+  }, [post?.ratings, firebaseUser?.uid]); // Dependências específicas
+
+  // Memoize o cálculo do rating médio
+  const averageRating = useMemo(() => {
+    if (!post?.ratings || post.ratings.length === 0) return 0;
+    const sum = post.ratings.reduce((acc, curr) => acc + curr.rating, 0);
+    return sum / post.ratings.length;
+  }, [post?.ratings]);
 
   const getRoleLevel = (role: string): number => {
     switch (role) {
@@ -109,74 +248,18 @@ export default function PostContent({ postId }: PostContentProps) {
 
   const canRate = profile && getRoleLevel(profile.role || 'membro') >= getRoleLevel('membro+');
 
-  const canDeletePost = user && post && (
-    user.uid === post.userId || 
+  const canDeletePost = firebaseUser && post && (
+    firebaseUser.uid === post.userId || 
     (profile?.role && ['admin', 'vip+'].includes(profile.role))
   );
 
-  const getAverageRating = () => {
-    if (!post?.ratings || post.ratings.length === 0) return 0;
-    const sum = post.ratings.reduce((acc, curr) => acc + curr.rating, 0);
-    return sum / post.ratings.length;
-  };
-
-  useEffect(() => {
-    const loadPost = async () => {
-      if (!postId) return;
-
-      try {
-        const postDoc = await getDoc(doc(db, 'posts', postId));
-        if (postDoc.exists()) {
-          const data = postDoc.data();
-          console.log('Raw post data:', data); // Log dos dados brutos
-          
-          // Buscar dados do usuário
-          const userDoc = await getDoc(doc(db, 'users', data.userId || ''));
-          const userData = userDoc.exists() ? userDoc.data() : null;
-          
-          const postData: Post = {
-            id: postDoc.id,
-            title: data.title || '',
-            description: data.description || '',
-            mainImage: data.mainImage || '',
-            galleryImages: data.galleryImages || [],
-            tags: data.tags || [],
-            createdAt: data.createdAt,
-            userId: data.userId || '',
-            username: data.username || userData?.displayName || 'Anônimo',
-            userPhotoURL: userData?.photoURL || '/default-avatar.png',
-            status: data.status || 'active',
-            downloadSite: data.downloadSite || '',
-            downloadUrl: data.downloadUrl || '',
-            ratings: data.ratings || []
-          };
-          
-          console.log('Processed post data:', postData); // Log dos dados processados
-          console.log('Gallery images:', postData.galleryImages); // Log específico das imagens
-          
-          setPost(postData);
-          
-          if (user) {
-            const userRating = postData.ratings?.find(r => r.userId === user.uid);
-            if (userRating) {
-              setUserRating(userRating.rating);
-            }
-          }
-        } else {
-          console.error('Post não encontrado');
-          router.push('/jogos');
-        }
-      } catch (error) {
-        console.error('Erro ao carregar post:', error);
-        router.push('/jogos');
-      }
-    };
-
-    loadPost();
-  }, [postId, router, user]);
+  const canEditPost = firebaseUser && post && (
+    firebaseUser.uid === post.userId || 
+    (profile?.role && ['admin', 'vip+'].includes(profile.role))
+  );
 
   const handleRating = async (newRating: number) => {
-    if (!user) {
+    if (!firebaseUser) {
       toast({
         title: 'Faça login primeiro',
         description: 'Você precisa estar logado para avaliar posts.',
@@ -212,18 +295,18 @@ export default function PostContent({ postId }: PostContentProps) {
 
       const post = postDoc.data();
       const ratings = post.ratings || [];
-      const existingRating = ratings.find((r: any) => r.userId === user.uid);
+      const existingRating = ratings.find((r: any) => r.userId === firebaseUser.uid);
 
       let updatedRatings;
       if (existingRating) {
         // Se está atualizando uma avaliação existente
         updatedRatings = ratings.map((r: any) =>
-          r.userId === user.uid ? { ...r, rating: newRating } : r
+          r.userId === firebaseUser.uid ? { ...r, rating: newRating } : r
         );
       } else {
         // Se é uma nova avaliação
         updatedRatings = [...ratings, { 
-          userId: user.uid, 
+          userId: firebaseUser.uid, 
           rating: newRating,
           timestamp: Date.now()
         }];
@@ -252,28 +335,8 @@ export default function PostContent({ postId }: PostContentProps) {
     }
   };
 
-  const handleDownload = () => {
-    if (!post.downloadUrl) {
-      toast({
-        title: 'Link indisponível',
-        description: 'O link de download não está disponível no momento.',
-        status: 'error',
-        duration: 3000,
-        isClosable: true,
-      });
-      return;
-    }
-
-    // Processar e abrir o URL
-    let processedUrl = post.downloadUrl;
-    if (!processedUrl.startsWith('http://') && !processedUrl.startsWith('https://')) {
-      processedUrl = 'https://' + processedUrl;
-    }
-    window.open(processedUrl, '_blank');
-  };
-
   const handleDeletePost = async () => {
-    if (!post || !user) return;
+    if (!post || !firebaseUser) return;
 
     try {
       // Buscar dados atuais do post para calcular ajustes
@@ -320,231 +383,265 @@ export default function PostContent({ postId }: PostContentProps) {
     return <div>Carregando...</div>;
   }
 
-  const averageRating = getAverageRating();
-
   return (
-    <Box maxW="container.xl" mx="auto" p={4}>
-      <Box position="relative">
-        {canDeletePost && (
-          <IconButton
-            aria-label="Deletar post"
-            icon={<Icon as={FaTimes} />}
-            position="absolute"
-            right={2}
-            top={2}
-            colorScheme="red"
-            size="sm"
-            onClick={onOpen}
-            zIndex={2}
-            borderRadius="full"
-            boxShadow="md"
-            _hover={{ bg: 'red.500', color: 'white' }}
-          />
-        )}
-        <Text fontSize="2xl" fontWeight="bold" mb={4}>
-          {post.title}
-        </Text>
-        <Box 
-          as="button" 
-          onClick={() => router.push(`/profile/${post.userId}`)}
-          display="flex" 
-          alignItems="center"
-          cursor="pointer"
-          _hover={{ opacity: 0.8 }}
-          transition="opacity 0.2s"
-          mb={4}
-        >
-          <Image 
-            src={post.userPhotoURL || '/default-avatar.png'} 
-            alt={post.username} 
-            w="40px" 
-            h="40px" 
-            borderRadius="full" 
-            mr={3}
-          />
-          <Text fontWeight="medium">{post.username}</Text>
-        </Box>
-      </Box>
-
-      {/* Avaliação */}
-      <Box>
-        <HStack spacing={4} mb={2}>
-          <Text fontSize="lg" fontWeight="medium">
-            Avaliação: {averageRating.toFixed(1)} ({post.ratings?.length || 0} votos)
-          </Text>
-        </HStack>
-        <HStack spacing={0} mt={4}>
-          {[1, 2, 3, 4, 5].map((star) => (
-            <Tooltip
-              key={star}
-              label={
-                !user 
-                  ? "Faça login para avaliar"
-                  : profile?.role === 'membro'
-                  ? "Você poderá avaliar posts após 3 dias de conta. Continue usando a plataforma!"
-                  : userRating 
-                  ? "Clique para mudar sua avaliação" 
-                  : "Clique para avaliar"
-              }
-              placement="top"
-            >
-              <IconButton
-                aria-label={`Rate ${star} stars`}
-                icon={<Icon as={FaStar} />}
-                onClick={() => handleRating(star)}
-                isDisabled={!user || profile?.role === 'membro'}
-                color={userRating && userRating >= star ? "yellow.400" : "gray.300"}
-                variant="ghost"
-                _hover={user && profile?.role !== 'membro' ? {
-                  color: "yellow.400"
-                } : undefined}
-                size="sm"
-                p={0}
-                minW="auto"
+    <Box maxW="container.xl" py={8} mx="auto">
+      {post && (
+        <Box p={6} bg="gray.800" borderRadius="lg">
+          <Box position="relative">
+            {/* Imagem Principal */}
+            <Box mb={6}>
+              <Image
+                src={post.mainImage}
+                alt={post.title}
+                width="100%"
+                height="400px"
+                objectFit="cover"
+                borderRadius="md"
               />
-            </Tooltip>
-          ))}
-          <Text ml={2}>
-            ({post?.ratings?.length || 0} avaliações)
-          </Text>
-        </HStack>
-      </Box>
+            </Box>
 
-      {/* Imagem Principal */}
-      <Box
-        borderRadius="lg"
-        overflow="hidden"
-        borderWidth="2px"
-        borderColor="pink.400"
-        mt={4}
-      >
-        <Image
-          src={post.mainImage}
-          alt={post.title}
-          w="full"
-          h={{ base: "300px", md: "500px" }}
-          objectFit="cover"
-        />
-      </Box>
+            {/* Título e Botões de Ação */}
+            <Flex justifyContent="space-between" alignItems="flex-start" mb={4}>
+              <Text fontSize="2xl" fontWeight="bold" color="white">
+                {post.title}
+              </Text>
+              {canEditPost && (
+                <HStack spacing={2} position="absolute" top={4} right={4}>
+                  <Button
+                    leftIcon={<EditIcon />}
+                    colorScheme="blue"
+                    onClick={onEditOpen}
+                  >
+                    Editar
+                  </Button>
+                  <Button
+                    leftIcon={<DeleteIcon />}
+                    colorScheme="red"
+                    onClick={onDeleteOpen}
+                  >
+                    Excluir
+                  </Button>
+                </HStack>
+              )}
+            </Flex>
 
-      {/* Tags */}
-      <Wrap spacing={1} mt={4}>
-        {post.tags.map(tagId => {
-          const tag = gameTags.find(t => t.value === tagId);
-          return tag ? (
-            <Button
-              key={tag.value}
-              variant="solid"
-              borderWidth="1px"
-              borderColor="purple.500"
-              bg="rgba(128, 90, 213, 0.3)"
-              color="white"
-              _hover={{ bg: 'rgba(128, 90, 213, 0.4)' }}
-              size="xs"
-              height="min-content"
-              minH={0}
-              minW="min-content"
-              width="auto"
-              px={2}
-              py={0.5}
-              borderRadius="full"
-              fontSize="24px"
-              lineHeight="1.2"
-              fontWeight="medium"
-            >
-              {tag.label}
-            </Button>
-          ) : null;
-        })}
-      </Wrap>
+            {/* Sistema de Avaliação */}
+            <Box mb={6}>
+              <HStack spacing={0}>
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <IconButton
+                    key={star}
+                    aria-label={`Rate ${star} stars`}
+                    icon={<FaStar />}
+                    onClick={() => handleRating(star)}
+                    isDisabled={!firebaseUser || profile?.role === 'membro'}
+                    color={userRating && userRating >= star ? "yellow.400" : "gray.300"}
+                    variant="ghost"
+                    size="lg"
+                    p={0}
+                    minW="auto"
+                  />
+                ))}
+                <Text color="white" ml={2}>
+                  ({averageRating.toFixed(1)})
+                </Text>
+              </HStack>
+            </Box>
 
-      {/* Descrição */}
-      <Box mt={4}>
-        <Text fontSize="lg" fontWeight="bold" mb={2}>
-          Descrição
-        </Text>
-        <Text whiteSpace="pre-wrap">{post.description}</Text>
-      </Box>
+            {/* Descrição */}
+            <Text color="gray.300" mb={6} whiteSpace="pre-wrap">
+              {linkify(post.description)}
+            </Text>
 
-      {/* Galeria */}
-      {post.galleryImages?.length > 0 && (
-        <Box mt={4}>
-          <Text fontSize="lg" fontWeight="bold" mb={2}>
-            Galeria
-          </Text>
-          <Wrap spacing={4}>
-            {post.galleryImages.map((image, index) => (
-              <Box
-                key={index}
-                borderRadius="lg"
-                overflow="hidden"
-                borderWidth="2px"
-                borderColor="pink.400"
-              >
-                <Image
-                  src={image}
-                  objectFit="cover"
-                  alt={`${post.title} - Imagem ${index + 1}`}
-                  w="full"
-                  h="200px"
-                />
+            {/* Tags */}
+            <HStack mb={6}>
+              {post.tags?.map((tag, index) => (
+                <Tag key={index} colorScheme="pink">
+                  {tag}
+                </Tag>
+              ))}
+            </HStack>
+
+            {/* Galeria de Imagens */}
+            {post.galleryImages && post.galleryImages.length > 0 && (
+              <Box mb={8}>
+                <Text fontSize="lg" fontWeight="bold" mb={4} color="white">
+                  Galeria
+                </Text>
+                <Grid templateColumns="repeat(5, 1fr)" gap={4}>
+                  {post.galleryImages.map((image, index) => (
+                    <GridItem key={index}>
+                      <Box 
+                        border="2px"
+                        borderColor="white"
+                        borderRadius="lg"
+                        overflow="hidden"
+                        cursor="pointer"
+                        onClick={() => {
+                          setSelectedImage(image);
+                          onImageOpen();
+                        }}
+                      >
+                        <Image
+                          src={image}
+                          alt={`Imagem ${index + 1}`}
+                          width="100%"
+                          height="100px"
+                          objectFit="cover"
+                        />
+                      </Box>
+                    </GridItem>
+                  ))}
+                </Grid>
               </Box>
-            ))}
-          </Wrap>
+            )}
+
+            {/* Links de Download */}
+            <Box mb={6}>
+              <Text fontSize="xl" fontWeight="bold" mb={4} color="white">
+                Downloads
+              </Text>
+              {console.log('Download URLs:', { 
+                main: post.downloadUrl,
+                translation: post.translationUrl,
+                dlc: post.dlcUrl,
+                patch: post.patchUrl
+              })}
+              <Grid templateColumns={{ base: "1fr", md: "repeat(4, 1fr)" }} gap={4}>
+                {/* Download Principal */}
+                {post.downloadUrl && (
+                  <GridItem>
+                    <Box 
+                      p={4} 
+                      bg="gray.700"
+                      borderRadius="lg"
+                      border="1px"
+                      borderColor="pink.500"
+                      height="100%"
+                    >
+                      <VStack spacing={2}>
+                        <Text color="white" fontWeight="bold">
+                          Download Principal
+                        </Text>
+                        <Button
+                          as="a"
+                          href={post.downloadUrl.startsWith('http') ? post.downloadUrl : `https://${post.downloadUrl}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          colorScheme="pink"
+                          width="100%"
+                          leftIcon={<FaDownload />}
+                        >
+                          mega
+                        </Button>
+                      </VStack>
+                    </Box>
+                  </GridItem>
+                )}
+
+                {/* Downloads Opcionais */}
+                {[
+                  { id: 'translation', label: 'Tradução', url: post.translationUrl },
+                  { id: 'dlc', label: 'DLC', url: post.dlcUrl },
+                  { id: 'patch', label: 'Patch', url: post.patchUrl }
+                ].map((type) => type.url && (
+                  <GridItem key={type.id}>
+                    <Box 
+                      p={4} 
+                      bg="gray.700"
+                      borderRadius="lg"
+                      border="1px"
+                      borderColor="gray.600"
+                      height="100%"
+                    >
+                      <VStack spacing={2}>
+                        <Text color="white" fontWeight="bold">
+                          {type.label}
+                        </Text>
+                        <Button
+                          as="a"
+                          href={type.url.startsWith('http') ? type.url : `https://${type.url}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          colorScheme="pink"
+                          width="100%"
+                          leftIcon={<FaDownload />}
+                        >
+                          mega
+                        </Button>
+                      </VStack>
+                    </Box>
+                  </GridItem>
+                ))}
+              </Grid>
+            </Box>
+
+            {/* Modal para visualização da imagem */}
+            <Modal isOpen={isImageOpen} onClose={onImageClose} size="6xl">
+              <ModalOverlay />
+              <ModalContent bg="gray.800">
+                <ModalCloseButton color="white" />
+                <ModalBody p={0}>
+                  {selectedImage && (
+                    <Image
+                      src={selectedImage}
+                      alt="Imagem ampliada"
+                      width="100%"
+                      height="auto"
+                      maxH="90vh"
+                      objectFit="contain"
+                    />
+                  )}
+                </ModalBody>
+              </ModalContent>
+            </Modal>
+
+            {/* Modal de Edição */}
+            <CreatePost
+              isOpen={isEditOpen}
+              onClose={onEditClose}
+              editPost={post ? {
+                id: post.id || '',
+                title: post.title,
+                description: post.description,
+                mainImage: post.mainImage,
+                galleryImages: post.galleryImages || [],
+                downloadSite: post.downloadSite || '',
+                downloadUrl: post.downloadUrl || '',
+                tags: post.tags,
+                translationSite: post.translationSite,
+                translationUrl: post.translationUrl,
+                dlcSite: post.dlcSite,
+                dlcUrl: post.dlcUrl,
+                patchSite: post.patchSite,
+                patchUrl: post.patchUrl
+              } : undefined}
+            />
+
+            {/* Diálogo de Confirmação de Exclusão */}
+            <Modal isOpen={isDeleteOpen} onClose={onDeleteClose} size="md">
+              <ModalOverlay />
+              <ModalContent bg="gray.800">
+                <ModalHeader fontSize="lg" fontWeight="bold" color="white">
+                  Excluir Post
+                </ModalHeader>
+                <ModalCloseButton color="white" />
+                <ModalBody>
+                  Tem certeza? Esta ação não pode ser desfeita.
+                </ModalBody>
+                <ModalFooter>
+                  <Button ref={cancelRef} onClick={onDeleteClose}>
+                    Cancelar
+                  </Button>
+                  <Button colorScheme="red" onClick={handleDeletePost} ml={3}>
+                    Excluir
+                  </Button>
+                </ModalFooter>
+              </ModalContent>
+            </Modal>
+          </Box>
         </Box>
       )}
-
-      {/* Download */}
-      <Box mt={6} p={4} borderWidth="1px" borderRadius="lg" bg="gray.900">
-        <Text fontSize="lg" fontWeight="bold" mb={2}>
-          Download
-        </Text>
-        <Box>
-          <Text mb={2}>
-            Site: {post.downloadSite || 'Não especificado'}
-          </Text>
-          <Button
-            leftIcon={<FaDownload />}
-            colorScheme="purple"
-            onClick={handleDownload}
-            isDisabled={!post.downloadUrl}
-            w="100%"
-          >
-            Download
-          </Button>
-        </Box>
-      </Box>
-
-      {/* AlertDialog para confirmação */}
-      <AlertDialog
-        isOpen={isOpen}
-        leastDestructiveRef={cancelRef}
-        onClose={onClose}
-      >
-        <AlertDialogOverlay>
-          <AlertDialogContent>
-            <AlertDialogHeader fontSize="lg" fontWeight="bold">
-              Deletar Post
-            </AlertDialogHeader>
-
-            <AlertDialogBody>
-              Tem certeza que deseja deletar este post? Esta ação não pode ser desfeita.
-            </AlertDialogBody>
-
-            <AlertDialogFooter>
-              <Button ref={cancelRef} onClick={onClose}>
-                Cancelar
-              </Button>
-              <Button colorScheme="red" onClick={() => {
-                handleDeletePost();
-                onClose();
-              }} ml={3}>
-                Deletar
-              </Button>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialogOverlay>
-      </AlertDialog>
     </Box>
   );
 }

@@ -30,7 +30,8 @@ import {
   Wrap,
   Tag,
   TagLabel,
-  TagCloseButton
+  TagCloseButton,
+  Grid
 } from '@chakra-ui/react';
 import { ChevronDownIcon, CloseIcon, DeleteIcon, AddIcon, InfoIcon } from '@chakra-ui/icons';
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
@@ -48,6 +49,22 @@ import { logger } from '@/utils/logger';
 interface CreatePostProps {
   isOpen: boolean;
   onClose: () => void;
+  editPost?: {
+    id: string;
+    title: string;
+    description: string;
+    mainImage: string;
+    galleryImages: string[];
+    downloadSite: string;
+    downloadUrl: string;
+    tags: string[];
+    translationSite?: string;
+    translationUrl?: string;
+    dlcSite?: string;
+    dlcUrl?: string;
+    patchSite?: string;
+    patchUrl?: string;
+  };
 }
 
 const getDownloadUrl = (url: string): string => {
@@ -59,7 +76,8 @@ const downloadSites = [
   { id: 'mega', label: 'MEGA', domain: 'mega.nz' },
   { id: 'mediafire', label: 'MediaFire', domain: 'mediafire.com' },
   { id: 'gdrive', label: 'Google Drive', domain: 'drive.google.com' },
-  { id: 'pixeldrain', label: 'PixelDrain', domain: 'pixeldrain.com' }
+  { id: 'pixeldrain', label: 'PixelDrain', domain: 'pixeldrain.com' },
+  { id: 'f95zone', label: 'F95zone', domain: 'f95zone.to' }
 ];
 
 const validateDownloadUrl = (url: string, site: string): boolean => {
@@ -74,7 +92,7 @@ const validateDownloadUrl = (url: string, site: string): boolean => {
   }
 };
 
-const CreatePost = ({ isOpen, onClose }: CreatePostProps) => {
+const CreatePost = ({ isOpen, onClose, editPost }: CreatePostProps) => {
   const [user] = useAuthState(auth);
   const { user: firebaseUser, profile } = useUserContext();
   const router = useRouter();
@@ -82,9 +100,18 @@ const CreatePost = ({ isOpen, onClose }: CreatePostProps) => {
   const [description, setDescription] = useState('');
   const [mainImage, setMainImage] = useState('');
   const [galleryImages, setGalleryImages] = useState<string[]>([]);
-  const [downloadLink, setDownloadLink] = useState('');
+  const [downloadUrl, setDownloadUrl] = useState('');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [downloadSite, setDownloadSite] = useState('');
+  
+  // Estados para downloads opcionais
+  const [translationSite, setTranslationSite] = useState('');
+  const [translationUrl, setTranslationUrl] = useState('');
+  const [dlcSite, setDlcSite] = useState('');
+  const [dlcUrl, setDlcUrl] = useState('');
+  const [patchSite, setPatchSite] = useState('');
+  const [patchUrl, setPatchUrl] = useState('');
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formErrors, setFormErrors] = useState<{ [key: string]: string }>({});
   const toast = useToast();
@@ -123,166 +150,199 @@ const CreatePost = ({ isOpen, onClose }: CreatePostProps) => {
     }
   }, [galleryWidgetReady]);
 
-  const validateForm = () => {
-    const errors: { [key: string]: string } = {};
-
-    if (!title.trim()) {
-      errors.title = 'Título é obrigatório';
+  // Carregar dados do post para edição
+  useEffect(() => {
+    if (editPost) {
+      setTitle(editPost.title);
+      setDescription(editPost.description);
+      setMainImage(editPost.mainImage);
+      setGalleryImages(editPost.galleryImages);
+      setDownloadSite(editPost.downloadSite);
+      setDownloadUrl(editPost.downloadUrl);
+      setSelectedTags(editPost.tags);
+      
+      if (editPost.translationSite) setTranslationSite(editPost.translationSite);
+      if (editPost.translationUrl) setTranslationUrl(editPost.translationUrl);
+      if (editPost.dlcSite) setDlcSite(editPost.dlcSite);
+      if (editPost.dlcUrl) setDlcUrl(editPost.dlcUrl);
+      if (editPost.patchSite) setPatchSite(editPost.patchSite);
+      if (editPost.patchUrl) setPatchUrl(editPost.patchUrl);
     }
-    if (!description.trim()) {
-      errors.description = 'Descrição é obrigatória';
-    }
-    if (!mainImage) {
-      errors.mainImage = 'Imagem principal é obrigatória';
-    }
-    if (!downloadLink.trim()) {
-      errors.downloadLink = 'Link de download é obrigatório';
-    }
-    if (!downloadSite) {
-      errors.downloadSite = 'Site de download é obrigatório';
-    }
-    if (selectedTags.length === 0) {
-      errors.tags = 'Selecione pelo menos uma tag';
-    }
-
-    setFormErrors(errors);
-    return Object.keys(errors).length === 0;
-  };
+  }, [editPost]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    logger.info('Iniciando submissão do formulário', { title, description, mainImage });
+
+    if (!user) {
+      toast({
+        title: "Erro",
+        description: "Você precisa estar logado para criar um post.",
+        status: "error",
+        duration: 5000,
+        isClosable: true,
+      });
+      return;
+    }
+
+    setIsSubmitting(true);
+    setFormErrors({});
+
+    // Validações básicas
+    const errors: { [key: string]: string } = {};
+    if (!title.trim()) errors.title = "Título é obrigatório";
+    if (!description.trim()) errors.description = "Descrição é obrigatória";
+    if (!mainImage) errors.mainImage = "Imagem principal é obrigatória";
+    if (!downloadSite) errors.downloadSite = "Site de download é obrigatório";
+    if (!downloadUrl) errors.downloadUrl = "Link de download é obrigatório";
+    
+    // Validar URL principal
+    if (downloadUrl && !validateDownloadUrl(downloadUrl, downloadSite)) {
+      errors.downloadUrl = `O link deve ser do domínio ${downloadSites.find(s => s.id === downloadSite)?.domain}`;
+    }
+
+    // Validar URLs opcionais apenas se estiverem preenchidos
+    if (translationUrl) {
+      if (!translationSite) {
+        errors.translationUrl = "Selecione um site para o download da tradução";
+      } else if (!validateDownloadUrl(translationUrl, translationSite)) {
+        errors.translationUrl = `O link deve ser do domínio ${downloadSites.find(s => s.id === translationSite)?.domain}`;
+      }
+    }
+
+    if (dlcUrl) {
+      if (!dlcSite) {
+        errors.dlcUrl = "Selecione um site para o download do DLC";
+      } else if (!validateDownloadUrl(dlcUrl, dlcSite)) {
+        errors.dlcUrl = `O link deve ser do domínio ${downloadSites.find(s => s.id === dlcSite)?.domain}`;
+      }
+    }
+
+    if (patchUrl) {
+      if (!patchSite) {
+        errors.patchUrl = "Selecione um site para o download do patch";
+      } else if (!validateDownloadUrl(patchUrl, patchSite)) {
+        errors.patchUrl = `O link deve ser do domínio ${downloadSites.find(s => s.id === patchSite)?.domain}`;
+      }
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors);
+      setIsSubmitting(false);
+      return;
+    }
 
     try {
-      setIsSubmitting(true);
-      setFormErrors({});
-
-      // Verificar se o usuário está autenticado
-      if (!user || !user.uid) {
-        throw new Error('Usuário não está autenticado');
-      }
-
-      // Validação
-      const errors: { [key: string]: string } = {};
-      if (!title.trim()) {
-        errors.title = 'Título é obrigatório';
-      }
-      if (!description.trim()) {
-        errors.description = 'Descrição é obrigatória';
-      }
-      if (!mainImage) {
-        errors.mainImage = 'Imagem principal é obrigatória';
-      }
-      if (!downloadSite) {
-        errors.downloadSite = 'Site de download é obrigatório';
-      }
-      if (!downloadLink) {
-        errors.downloadLink = 'Link de download é obrigatório';
-      } else if (!validateDownloadUrl(downloadLink, downloadSite)) {
-        errors.downloadLink = `O link deve ser do domínio ${downloadSites.find(s => s.id === downloadSite)?.domain}`;
-      }
-
-      if (Object.keys(errors).length > 0) {
-        logger.warn('Erros de validação encontrados', errors);
-        setFormErrors(errors);
-        return;
-      }
-
-      // Criar post
       const postData = {
         title: title.trim(),
         description: description.trim(),
         mainImage,
         galleryImages,
+        downloadSite,
+        downloadUrl,
         tags: selectedTags,
-        createdAt: serverTimestamp(),
         userId: user.uid,
         username: user.displayName || 'Anônimo',
         status: 'active',
-        downloadSite,
-        downloadUrl: downloadLink,
-        ratings: []
       };
 
-      logger.info('Dados do post preparados', postData);
-
-      // Referência para a coleção posts
-      const postsRef = collection(db, 'posts');
-      
-      // Tentar criar o post
-      const docRef = await addDoc(postsRef, postData);
-      logger.info('Post criado com sucesso', { postId: docRef.id });
-
-      // Atualizar o postCount do usuário e inicializar campos de avaliação se necessário
-      const userRef = doc(db, 'users', user?.uid || '');
-      const userDoc = await getDoc(userRef);
-      const userData = userDoc.data();
-
-      const updateData: any = {
-        postCount: increment(1)
-      };
-
-      // Inicializar ratingCount se não existir
-      if (!userData?.ratingCount) {
-        updateData.ratingCount = 0;
+      // Adicionar campos opcionais apenas se ambos site e URL estiverem preenchidos
+      if (translationSite && translationUrl) {
+        Object.assign(postData, {
+          translationSite,
+          translationUrl
+        });
       }
 
-      await updateDoc(userRef, updateData);
-      logger.info('Dados do usuário atualizados');
+      if (dlcSite && dlcUrl) {
+        Object.assign(postData, {
+          dlcSite,
+          dlcUrl
+        });
+      }
 
-      // Mostrar mensagem de sucesso
+      if (patchSite && patchUrl) {
+        Object.assign(postData, {
+          patchSite,
+          patchUrl
+        });
+      }
+
+      if (editPost) {
+        // Atualizar post existente
+        await updateDoc(doc(db, "posts", editPost.id), {
+          ...postData,
+          updatedAt: serverTimestamp()
+        });
+        
+        toast({
+          title: "Sucesso!",
+          description: "Post atualizado com sucesso!",
+          status: "success",
+          duration: 5000,
+          isClosable: true,
+        });
+      } else {
+        // Criar novo post
+        const docRef = await addDoc(collection(db, "posts"), {
+          ...postData,
+          createdAt: serverTimestamp(),
+          ratings: []
+        });
+
+        // Atualizar contagem de posts do usuário
+        const userRef = doc(db, "users", user.uid);
+        await updateDoc(userRef, {
+          postCount: increment(1)
+        });
+        
+        toast({
+          title: "Sucesso!",
+          description: "Post criado com sucesso!",
+          status: "success",
+          duration: 5000,
+          isClosable: true,
+        });
+      }
+
+      // Limpar o formulário e fechar o modal
+      resetForm();
+      onClose();
+      
+      // Recarregar a página
+      router.refresh();
+
+    } catch (error) {
+      console.error('Erro ao salvar post:', error);
       toast({
-        title: 'Post criado com sucesso!',
-        description: 'Seu post foi publicado.',
-        status: 'success',
+        title: "Erro",
+        description: "Erro ao salvar o post. Tente novamente.",
+        status: "error",
         duration: 5000,
         isClosable: true,
       });
-
-      // Fechar o modal e resetar o form
-      setTimeout(() => {
-        onClose();
-        setTitle('');
-        setDescription('');
-        setMainImage('');
-        setGalleryImages([]);
-        setSelectedTags([]);
-        setDownloadSite('');
-        setDownloadLink('');
-        window.location.reload();
-      }, 1000);
-
-    } catch (error: any) {
-      logger.error('Erro ao criar post', error);
-      
-      // Mensagens de erro específicas
-      let errorMessage = 'Erro ao criar post. Tente novamente.';
-      
-      if (error.code === 'permission-denied') {
-        errorMessage = 'Você não tem permissão para criar posts. Por favor, faça login novamente.';
-      } else if (error.message === 'Usuário não está autenticado') {
-        errorMessage = 'Você precisa estar logado para criar um post.';
-      }
-
-      toast({
-        title: 'Erro',
-        description: errorMessage,
-        status: 'error',
-        duration: 5000,
-        isClosable: true,
-      });
-
-      setFormErrors(prev => ({
-        ...prev,
-        submit: errorMessage
-      }));
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  const resetForm = () => {
+    setTitle("");
+    setDescription("");
+    setMainImage("");
+    setGalleryImages([]);
+    setSelectedTags([]);
+    setDownloadSite("");
+    setDownloadUrl("");
+    setTranslationSite("");
+    setTranslationUrl("");
+    setDlcSite("");
+    setDlcUrl("");
+    setPatchSite("");
+    setPatchUrl("");
+  };
+
   return (
-    <Modal isOpen={isOpen} onClose={onClose} size="xl">
+    <Modal isOpen={isOpen} onClose={onClose} size="2xl">
       <style jsx global>{`
         .cloudinary-overlay {
           margin: 0 !important;
@@ -302,7 +362,7 @@ const CreatePost = ({ isOpen, onClose }: CreatePostProps) => {
         }
       `}</style>
       <ModalOverlay />
-      <ModalContent bg="gray.800">
+      <ModalContent bg="gray.800" maxW="800px">
         <ModalHeader>
           <Flex justify="space-between" align="center">
             <Text color="white">Criar Novo Post</Text>
@@ -322,7 +382,7 @@ const CreatePost = ({ isOpen, onClose }: CreatePostProps) => {
         </ModalHeader>
         <ModalCloseButton color="white" />
         <ModalBody>
-          <VStack spacing={2} as="form" onSubmit={handleSubmit}>
+          <VStack spacing={4} width="100%" as="form" onSubmit={handleSubmit}>
             <FormControl isRequired isInvalid={!!formErrors.title}>
               <FormLabel color="white" mb={1}>Título</FormLabel>
               <Input
@@ -549,6 +609,7 @@ const CreatePost = ({ isOpen, onClose }: CreatePostProps) => {
                         src={image}
                         alt={`Gallery image ${index + 1}`}
                         boxSize="100px"
+                        w="full"
                         objectFit="cover"
                         borderRadius="md"
                       />
@@ -619,48 +680,139 @@ const CreatePost = ({ isOpen, onClose }: CreatePostProps) => {
               </Box>
             </FormControl>
 
-            <FormControl isRequired isInvalid={!!formErrors.downloadSite}>
+            <FormControl isRequired isInvalid={!!formErrors.downloadSite} width="100%">
               <FormLabel color="white" mb={1}>Site de Download</FormLabel>
-              <Select
-                value={downloadSite}
-                onChange={(e) => setDownloadSite(e.target.value)}
-                placeholder="Selecione o site"
-                bg="gray.700"
-                color="white"
-                _placeholder={{ color: 'gray.400' }}
-              >
-                {downloadSites.map((site) => (
-                  <option key={site.id} value={site.id} style={{ backgroundColor: '#2D3748' }}>
-                    {site.label}
-                  </option>
-                ))}
-              </Select>
+              <Grid templateColumns="1fr 3fr" gap={4} width="100%">
+                <Select
+                  value={downloadSite}
+                  onChange={(e) => setDownloadSite(e.target.value)}
+                  placeholder="Site"
+                  isInvalid={!!formErrors.downloadSite}
+                  width="100%"
+                >
+                  {downloadSites.map((site) => (
+                    <option key={site.id} value={site.id}>
+                      {site.label}
+                    </option>
+                  ))}
+                </Select>
+                <Input
+                  placeholder="Link de download"
+                  value={downloadUrl}
+                  onChange={(e) => setDownloadUrl(e.target.value)}
+                  isInvalid={!!formErrors.downloadUrl}
+                  width="100%"
+                />
+              </Grid>
               {formErrors.downloadSite && (
                 <Text color="red.500" fontSize="sm" mt={1}>
                   {formErrors.downloadSite}
                 </Text>
               )}
-            </FormControl>
-
-            <FormControl isRequired isInvalid={!!formErrors.downloadLink}>
-              <FormLabel color="white" mb={1}>URL de Download</FormLabel>
-              <Input
-                value={downloadLink}
-                onChange={(e) => setDownloadLink(e.target.value)}
-                placeholder="Digite a URL de download"
-                bg="gray.700"
-                color="white"
-                _placeholder={{ color: 'gray.400' }}
-              />
-              {formErrors.downloadLink && (
+              {formErrors.downloadUrl && (
                 <Text color="red.500" fontSize="sm" mt={1}>
-                  {formErrors.downloadLink}
+                  {formErrors.downloadUrl}
                 </Text>
               )}
             </FormControl>
 
+            <Box mt={4} width="100%">
+              {/* Tradução */}
+              <FormControl mb={4} isInvalid={!!formErrors.translationUrl} width="100%">
+                <FormLabel color="white" mb={1}>Download de Tradução (Opcional)</FormLabel>
+                <Grid templateColumns="1fr 3fr" gap={4} width="100%">
+                  <Select
+                    value={translationSite}
+                    onChange={(e) => setTranslationSite(e.target.value)}
+                    placeholder="Site (Tradução)"
+                    width="100%"
+                  >
+                    {downloadSites.map((site) => (
+                      <option key={site.id} value={site.id}>
+                        {site.label}
+                      </option>
+                    ))}
+                  </Select>
+                  <Input
+                    placeholder="Link da tradução (opcional)"
+                    value={translationUrl}
+                    onChange={(e) => setTranslationUrl(e.target.value)}
+                    isInvalid={!!formErrors.translationUrl}
+                    width="100%"
+                  />
+                </Grid>
+                {formErrors.translationUrl && (
+                  <Text color="red.500" fontSize="sm" mt={1}>
+                    {formErrors.translationUrl}
+                  </Text>
+                )}
+              </FormControl>
+
+              {/* DLC */}
+              <FormControl mb={4} isInvalid={!!formErrors.dlcUrl} width="100%">
+                <FormLabel color="white" mb={1}>Download de DLC (Opcional)</FormLabel>
+                <Grid templateColumns="1fr 3fr" gap={4} width="100%">
+                  <Select
+                    value={dlcSite}
+                    onChange={(e) => setDlcSite(e.target.value)}
+                    placeholder="Site (DLC)"
+                    width="100%"
+                  >
+                    {downloadSites.map((site) => (
+                      <option key={site.id} value={site.id}>
+                        {site.label}
+                      </option>
+                    ))}
+                  </Select>
+                  <Input
+                    placeholder="Link do DLC (opcional)"
+                    value={dlcUrl}
+                    onChange={(e) => setDlcUrl(e.target.value)}
+                    isInvalid={!!formErrors.dlcUrl}
+                    width="100%"
+                  />
+                </Grid>
+                {formErrors.dlcUrl && (
+                  <Text color="red.500" fontSize="sm" mt={1}>
+                    {formErrors.dlcUrl}
+                  </Text>
+                )}
+              </FormControl>
+
+              {/* Patch */}
+              <FormControl mb={4} isInvalid={!!formErrors.patchUrl} width="100%">
+                <FormLabel color="white" mb={1}>Download de Patch (Opcional)</FormLabel>
+                <Grid templateColumns="1fr 3fr" gap={4} width="100%">
+                  <Select
+                    value={patchSite}
+                    onChange={(e) => setPatchSite(e.target.value)}
+                    placeholder="Site (Patch)"
+                    width="100%"
+                  >
+                    {downloadSites.map((site) => (
+                      <option key={site.id} value={site.id}>
+                        {site.label}
+                      </option>
+                    ))}
+                  </Select>
+                  <Input
+                    placeholder="Link do patch (opcional)"
+                    value={patchUrl}
+                    onChange={(e) => setPatchUrl(e.target.value)}
+                    isInvalid={!!formErrors.patchUrl}
+                    width="100%"
+                  />
+                </Grid>
+                {formErrors.patchUrl && (
+                  <Text color="red.500" fontSize="sm" mt={1}>
+                    {formErrors.patchUrl}
+                  </Text>
+                )}
+              </FormControl>
+            </Box>
+
             <Button type="submit" colorScheme="blue" w="full" isLoading={isSubmitting}>
-              Criar Post
+              {editPost ? 'Atualizar Post' : 'Criar Post'}
             </Button>
           </VStack>
         </ModalBody>
