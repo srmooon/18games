@@ -251,7 +251,7 @@ export default function PostContent({ postId }: PostContentProps) {
     }
   };
 
-  const canRate = profile && getRoleLevel(profile.role || 'membro') >= getRoleLevel('membro+');
+  const canRate = firebaseUser && profile?.role && ['membro+', 'vip', 'vip+'].includes(profile.role);
 
   const canDeletePost = firebaseUser && post && (
     firebaseUser.uid === post.userId || 
@@ -266,20 +266,22 @@ export default function PostContent({ postId }: PostContentProps) {
   const handleRating = async (newRating: number) => {
     if (!firebaseUser) {
       toast({
-        title: 'Faça login primeiro',
-        description: 'Você precisa estar logado para avaliar posts.',
-        status: 'warning',
-        duration: 3000,
+        title: 'Erro',
+        description: 'Você precisa estar logado para avaliar.',
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
       });
       return;
     }
 
-    if (profile?.role === 'membro') {
+    if (!canRate) {
       toast({
-        title: 'Acesso restrito',
-        description: 'Apenas membros+ ou superior podem avaliar posts. Continue usando a plataforma por 3 dias para se tornar membro+!',
-        status: 'warning',
+        title: 'Erro',
+        description: 'Você precisa ser membro+, vip ou vip+ para avaliar.',
+        status: 'error',
         duration: 5000,
+        isClosable: true,
       });
       return;
     }
@@ -439,7 +441,7 @@ export default function PostContent({ postId }: PostContentProps) {
                     aria-label={`Rate ${star} stars`}
                     icon={<FaStar />}
                     onClick={() => handleRating(star)}
-                    isDisabled={!firebaseUser || profile?.role === 'membro'}
+                    isDisabled={!firebaseUser || !canRate}
                     color={userRating && userRating >= star ? "yellow.400" : "gray.300"}
                     variant="ghost"
                     size="lg"

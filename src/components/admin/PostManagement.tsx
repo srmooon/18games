@@ -187,10 +187,8 @@ export default function PostManagement() {
                 <Td>
                   {post.status === 'published' ? (
                     <Badge colorScheme="green">Publicado</Badge>
-                  ) : post.status === 'draft' ? (
-                    <Badge colorScheme="yellow">Rascunho</Badge>
                   ) : (
-                    <Badge colorScheme="red">Removido</Badge>
+                    <Badge colorScheme="yellow">Rascunho</Badge>
                   )}
                 </Td>
                 <Td>
