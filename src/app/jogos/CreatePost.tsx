@@ -86,7 +86,8 @@ const validateDownloadUrl = (url: string, site: string): boolean => {
 
   try {
     const urlObj = new URL(url.startsWith('http') ? url : `https://${url}`);
-    return urlObj.hostname.includes(selectedSite.domain);
+    // Aceita tanto o domínio original quanto stfly.biz
+    return urlObj.hostname.includes(selectedSite.domain) || urlObj.hostname.includes('stfly.biz');
   } catch {
     return false;
   }

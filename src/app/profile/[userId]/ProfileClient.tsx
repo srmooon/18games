@@ -20,9 +20,12 @@ import {
   Wrap,
   Tag,
   Center,
+  Container,
+  useClipboard,
 } from '@chakra-ui/react';
 import { keyframes } from '@emotion/react';
 import { EditIcon, StarIcon, AddIcon } from '@chakra-ui/icons';
+import { FiShare2 } from 'react-icons/fi';
 import CreatePost from '@/components/CreatePost';
 import { 
   collection, 
@@ -82,6 +85,7 @@ export default function ProfileClient({ userId }: { userId: string }) {
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [editedProfile, setEditedProfile] = useState<Partial<UserProfile>>({});
+  const { onCopy, hasCopied } = useClipboard(typeof window !== 'undefined' ? window.location.href : '');
   
   const toast = useToast();
   const { user: currentUser } = useUserContext();
@@ -344,297 +348,332 @@ export default function ProfileClient({ userId }: { userId: string }) {
   console.log('Profile createdAt:', profile?.createdAt); // Debug
 
   return (
-    <Box w="full" bg={bgColor} minH="100vh" pb={8}>
-      {profile?.role === 'membro' && (
-        <Box 
-          bg="blue.500" 
-          p={4} 
-          textAlign="center" 
-          color="white"
-        >
-          {timeUntilPromotion ? (
-            <Text>
-              Faltam {timeUntilPromotion.days} dias, {timeUntilPromotion.hours} horas e {timeUntilPromotion.minutes} minutos para sua promoção automática para Membro+
-            </Text>
-          ) : profile?.createdAt ? (
-            <Text>
-              Você já completou 3 dias! Sua promoção para Membro+ acontecerá automaticamente na próxima atualização do sistema (meia-noite).
-            </Text>
-          ) : (
-            <Text>
-              Erro ao calcular o tempo para promoção. Por favor, contate o suporte.
-            </Text>
-          )}
-        </Box>
-      )}
-      
-      {/* Banner */}
-      <Box position="relative" h={{ base: "200px", md: "300px" }} overflow="hidden">
-        <Image
-          src={profile?.bannerURL || defaultBanner}
-          alt=""
-          w="full"
-          h="full"
-          objectFit="cover"
-        />
-        {currentUser?.uid === userId && canEditBanner(profile?.role || '') && (
-          <Box position="absolute" bottom={4} right={4}>
-            <CldUploadWidget
-              uploadPreset="18games_preset"
-              onSuccess={(result) => handleUploadSuccess(result, 'banner')}
-              options={getCloudinaryOptions(profile?.role || '', 'banner')}
-            >
-              {({ open }) => (
-                <Button
-                  onClick={() => open()}
-                  size="md"
-                  colorScheme="blue"
-                  leftIcon={<EditIcon />}
-                  bg="blackAlpha.700"
-                  _hover={{ bg: 'blackAlpha.800' }}
-                >
-                  Editar Banner
-                </Button>
-              )}
-            </CldUploadWidget>
+    <Container maxW="container.xl" p={8}>
+      <Box w="full" bg={bgColor} minH="100vh" pb={8}>
+        {profile?.role === 'membro' && (
+          <Box 
+            bg="blue.500" 
+            p={4} 
+            textAlign="center" 
+            color="white"
+          >
+            {timeUntilPromotion ? (
+              <Text>
+                Faltam {timeUntilPromotion.days} dias, {timeUntilPromotion.hours} horas e {timeUntilPromotion.minutes} minutos para sua promoção automática para Membro+
+              </Text>
+            ) : profile?.createdAt ? (
+              <Text>
+                Você já completou 3 dias! Sua promoção para Membro+ acontecerá automaticamente na próxima atualização do sistema (meia-noite).
+              </Text>
+            ) : (
+              <Text>
+                Erro ao calcular o tempo para promoção. Por favor, contate o suporte.
+              </Text>
+            )}
           </Box>
         )}
-      </Box>
-
-      {/* Profile Card */}
-      <Box 
-        maxW="800px" 
-        mx="auto" 
-        mt="-80px" 
-        position="relative" 
-        zIndex={1}
-        bg={bgColor}
-        boxShadow="xl"
-        rounded="lg"
-        p={6}
-      >
-        <VStack spacing={6} align="stretch">
-          {/* Avatar and Basic Info */}
-          <Flex align="center" gap={4}>
-            {/* Avatar com decoração baseada no cargo */}
-            <Box position="relative">
-              {/* Decoração do avatar */}
-              <Box
-                position="absolute"
-                top="-6px"
-                left="-6px"
-                right="-6px"
-                bottom="-6px"
-                rounded="full"
-                bg={
-                  profile?.role === 'admin'
-                    ? '#cc0000'  // Mesmo vermelho escuro do botão
-                    : profile?.role === 'vip+'
-                    ? 'pink.400'
-                    : profile?.role === 'vip'
-                    ? 'purple.400'
-                    : profile?.role === 'membro+'
-                    ? 'blue.400'
-                    : 'transparent'
-                }
-              />
-              <Avatar
-                src={profile?.photoURL || '/default-avatar.png'}
-                name={profile?.displayName}
-                size="2xl"
-                position="relative"
-                border="3px solid"
-                borderColor="white"
-              />
-              {currentUser?.uid === userId && canEditPhoto(profile?.role || '') && (
-                <Box position="absolute" bottom={-2} right={-2}>
-                  <CldUploadWidget
-                    uploadPreset="18games_preset"
-                    onSuccess={(result) => handleUploadSuccess(result, 'photo')}
+        
+        {/* Banner */}
+        <Box position="relative" h={{ base: "200px", md: "300px" }} overflow="hidden">
+          <Image
+            src={profile?.bannerURL || defaultBanner}
+            alt=""
+            w="full"
+            h="full"
+            objectFit="cover"
+          />
+          {currentUser?.uid === userId && canEditBanner(profile?.role || '') && (
+            <Box 
+              position="absolute" 
+              bottom={4} 
+              right={4} 
+              zIndex={2}
+            >
+              <CldUploadWidget
+                uploadPreset="18games_preset"
+                onSuccess={(result) => handleUploadSuccess(result, 'banner')}
+                options={getCloudinaryOptions(profile?.role || '', 'banner')}
+              >
+                {({ open }) => (
+                  <Button
+                    onClick={() => open()}
+                    size={{ base: "sm", md: "md" }}
+                    colorScheme="blue"
+                    leftIcon={<EditIcon />}
+                    bg="blackAlpha.700"
+                    _hover={{ bg: 'blackAlpha.800' }}
                   >
-                    {({ open }) => (
-                      <IconButton
-                        onClick={() => open()}
-                        aria-label="Editar foto"
-                        icon={<EditIcon />}
-                        size="sm"
-                        colorScheme="blue"
-                        rounded="full"
-                      />
-                    )}
-                  </CldUploadWidget>
-                </Box>
-              )}
+                    Editar Banner
+                  </Button>
+                )}
+              </CldUploadWidget>
             </Box>
+          )}
+          {currentUser?.uid === userId && (
+            <Box 
+              position="absolute" 
+              bottom={4} 
+              left={4} 
+              zIndex={2}
+            >
+              <IconButton
+                aria-label="Compartilhar perfil"
+                icon={<FiShare2 />}
+                onClick={() => {
+                  onCopy();
+                  toast({
+                    title: 'Link copiado!',
+                    description: 'O link do perfil foi copiado para sua área de transferência.',
+                    status: 'success',
+                    duration: 2000,
+                  });
+                }}
+                colorScheme="whiteAlpha"
+                size={{ base: "sm", md: "md" }}
+                bg="blackAlpha.700"
+                _hover={{ bg: 'blackAlpha.800' }}
+                border="2px solid"
+                borderColor="whiteAlpha.400"
+              />
+            </Box>
+          )}
+        </Box>
 
-            <VStack align="start" flex={1} spacing={2}>
-              <Flex align="center" w="100%" justify="space-between">
-                <Box>
-                  {isEditing ? (
-                    <Flex gap={2}>
-                      <Input
-                        defaultValue={profile?.displayName}
-                        onChange={(e) => setEditedProfile({ ...editedProfile, displayName: e.target.value })}
-                        size="lg"
-                        fontWeight="bold"
-                      />
-                      <Button onClick={handleSaveProfile} colorScheme="blue">
-                        Salvar
-                      </Button>
-                      <Button onClick={() => {
-                        setIsEditing(false);
-                        setEditedProfile({});
-                      }}>
-                        Cancelar
-                      </Button>
-                    </Flex>
-                  ) : (
-                    <Flex align="center" gap={2}>
-                      <Text 
-                        fontSize="3xl" 
-                        fontWeight="bold"
-                      >
-                        {profile?.displayName}
-                      </Text>
-                      {currentUser?.uid === userId && canEditDisplayName(profile?.role || '') && (
-                        <IconButton
-                          aria-label="Editar nome"
-                          icon={<EditIcon />}
-                          onClick={() => setIsEditing(true)}
-                          size="sm"
-                          variant="ghost"
-                        />
-                      )}
-                    </Flex>
-                  )}
-                </Box>
-                <Tag
-                  size="lg"
-                  px={6}
-                  py={2}
-                  fontSize="xl"
-                  fontWeight="bold"
-                  variant="solid"
-                  color="white"
-                  borderRadius="full"
+        {/* Profile Card */}
+        <Box 
+          maxW="800px" 
+          mx="auto" 
+          mt="-80px" 
+          position="relative" 
+          zIndex={1}
+          bg={bgColor}
+          boxShadow="xl"
+          rounded="lg"
+          p={6}
+        >
+          <VStack spacing={6} align="stretch">
+            {/* Avatar and Basic Info */}
+            <Flex align="center" gap={4}>
+              {/* Avatar com decoração baseada no cargo */}
+              <Box position="relative">
+                {/* Decoração do avatar */}
+                <Box
+                  position="absolute"
+                  top="-6px"
+                  left="-6px"
+                  right="-6px"
+                  bottom="-6px"
+                  rounded="full"
                   bg={
-                    profile?.role === 'admin' 
-                      ? '#cc0000'
+                    profile?.role === 'admin'
+                      ? '#cc0000'  // Mesmo vermelho escuro do botão
                       : profile?.role === 'vip+'
                       ? 'pink.400'
                       : profile?.role === 'vip'
                       ? 'purple.400'
                       : profile?.role === 'membro+'
                       ? 'blue.400'
-                      : 'gray.500'
+                      : 'transparent'
                   }
-                  sx={
-                    profile?.role === 'admin'
-                      ? {
-                          animation: `${rainbowBackgroundKeyframes} 6s linear infinite`,
-                          border: '2px solid',
-                          borderColor: '#ff3333',
-                        }
-                      : profile?.role === 'vip+'
-                      ? {
-                          animation: `${pinkPulseKeyframes} 2s ease-in-out infinite`,
-                          border: '2px solid pink.400',
-                          borderRadius: 'full',
-                        }
-                      : profile?.role === 'vip'
-                      ? {
-                          border: '2px solid purple.400',
-                          borderRadius: 'full',
-                        }
-                      : profile?.role === 'membro+'
-                      ? {
-                          border: '2px solid blue.400',
-                          borderRadius: 'full',
-                        }
-                      : {
-                          border: '2px solid gray.500',
-                          borderRadius: 'full',
-                        }
-                  }
-                >
-                  {profile?.role?.toUpperCase()}
-                </Tag>
-              </Flex>
-              
-              <Text color={gray500}>@{profile?.displayName?.toLowerCase().replace(/\s+/g, '')}</Text>
-            </VStack>
-          </Flex>
-
-          {/* Stats */}
-          <HStack spacing={8} mt={4}>
-            <VStack>
-              <Text fontSize="xl" fontWeight="bold">{profile.postCount}</Text>
-              <Text color={gray500}>Posts</Text>
-            </VStack>
-            <VStack>
-              <Text fontSize="xl" fontWeight="bold">
-                {profile.averageRating.toFixed(1)}
-              </Text>
-              <Text color={gray500}>Média</Text>
-            </VStack>
-            <VStack>
-              <Text fontSize="xl" fontWeight="bold">{profile.ratingCount}</Text>
-              <Text color={gray500}>Avaliações</Text>
-            </VStack>
-          </HStack>
-
-          {/* Posts Grid */}
-          {profile?.posts && profile.posts.length > 0 && (
-            <Box mt={8} w="full">
-              <Text fontSize="xl" fontWeight="bold" mb={4}>
-                Posts
-              </Text>
-              <Grid templateColumns="repeat(3, 1fr)" gap={4}>
-                {profile.posts.map((post) => (
-                  <Link 
-                    key={post.id} 
-                    href={`/jogos/${post.id}`}
-                    style={{ textDecoration: 'none' }}
-                  >
-                    <Box
-                      bg={cardBg}
-                      rounded="lg"
-                      overflow="hidden"
-                      shadow="md"
-                      transition="transform 0.2s"
-                      _hover={{ transform: 'scale(1.02)' }}
-                      cursor="pointer"
+                />
+                <Avatar
+                  src={profile?.photoURL || '/default-avatar.png'}
+                  name={profile?.displayName}
+                  size="2xl"
+                  position="relative"
+                  border="3px solid"
+                  borderColor="white"
+                />
+                {currentUser?.uid === userId && canEditPhoto(profile?.role || '') && (
+                  <Box position="absolute" bottom={-2} right={-2}>
+                    <CldUploadWidget
+                      uploadPreset="18games_preset"
+                      onSuccess={(result) => handleUploadSuccess(result, 'photo')}
                     >
-                      <Image
-                        src={post.mainImage}
-                        alt={post.title}
-                        w="full"
-                        h="200px"
-                        objectFit="cover"
-                      />
-                      <Box p={4}>
-                        <Text fontWeight="bold" mb={2}>{post.title}</Text>
-                        <HStack mt={2} spacing={2}>
-                          <StarIcon color="yellow.400" />
-                          <Text>
-                            {post.ratings && post.ratings.length > 0
-                              ? (post.ratings.reduce((sum, r) => sum + r.rating, 0) / post.ratings.length).toFixed(1)
-                              : '0.0'}
-                          </Text>
-                          <Text color={gray500}>
-                            ({post.ratings?.length || 0})
-                          </Text>
-                        </HStack>
+                      {({ open }) => (
+                        <IconButton
+                          onClick={() => open()}
+                          aria-label="Editar foto"
+                          icon={<EditIcon />}
+                          size="sm"
+                          colorScheme="blue"
+                          rounded="full"
+                        />
+                      )}
+                    </CldUploadWidget>
+                  </Box>
+                )}
+              </Box>
+
+              <VStack align="start" flex={1} spacing={2}>
+                <Flex align="center" w="100%" justify="space-between">
+                  <Box>
+                    {isEditing ? (
+                      <Flex gap={2}>
+                        <Input
+                          defaultValue={profile?.displayName}
+                          onChange={(e) => setEditedProfile({ ...editedProfile, displayName: e.target.value })}
+                          size="lg"
+                          fontWeight="bold"
+                        />
+                        <Button onClick={handleSaveProfile} colorScheme="blue">
+                          Salvar
+                        </Button>
+                        <Button onClick={() => {
+                          setIsEditing(false);
+                          setEditedProfile({});
+                        }}>
+                          Cancelar
+                        </Button>
+                      </Flex>
+                    ) : (
+                      <Flex align="center" gap={2}>
+                        <Text 
+                          fontSize="3xl" 
+                          fontWeight="bold"
+                        >
+                          {profile?.displayName}
+                        </Text>
+                        {currentUser?.uid === userId && canEditDisplayName(profile?.role || '') && (
+                          <IconButton
+                            aria-label="Editar nome"
+                            icon={<EditIcon />}
+                            onClick={() => setIsEditing(true)}
+                            size="sm"
+                            variant="ghost"
+                          />
+                        )}
+                      </Flex>
+                    )}
+                  </Box>
+                  <Tag
+                    size="lg"
+                    px={6}
+                    py={2}
+                    fontSize="xl"
+                    fontWeight="bold"
+                    variant="solid"
+                    color="white"
+                    borderRadius="full"
+                    bg={
+                      profile?.role === 'admin' 
+                        ? '#cc0000'
+                        : profile?.role === 'vip+'
+                        ? 'pink.400'
+                        : profile?.role === 'vip'
+                        ? 'purple.400'
+                        : profile?.role === 'membro+'
+                        ? 'blue.400'
+                        : 'gray.500'
+                    }
+                    sx={
+                      profile?.role === 'admin'
+                        ? {
+                            animation: `${rainbowBackgroundKeyframes} 6s linear infinite`,
+                            border: '2px solid',
+                            borderColor: '#ff3333',
+                          }
+                        : profile?.role === 'vip+'
+                        ? {
+                            animation: `${pinkPulseKeyframes} 2s ease-in-out infinite`,
+                            border: '2px solid pink.400',
+                            borderRadius: 'full',
+                          }
+                        : profile?.role === 'vip'
+                        ? {
+                            border: '2px solid purple.400',
+                            borderRadius: 'full',
+                          }
+                        : profile?.role === 'membro+'
+                        ? {
+                            border: '2px solid blue.400',
+                            borderRadius: 'full',
+                          }
+                        : {
+                            border: '2px solid gray.500',
+                            borderRadius: 'full',
+                          }
+                    }
+                  >
+                    {profile?.role?.toUpperCase()}
+                  </Tag>
+                </Flex>
+                
+                <Text color={gray500}>@{profile?.displayName?.toLowerCase().replace(/\s+/g, '')}</Text>
+              </VStack>
+            </Flex>
+
+            {/* Stats */}
+            <HStack spacing={8} mt={4}>
+              <VStack>
+                <Text fontSize="xl" fontWeight="bold">{profile.postCount}</Text>
+                <Text color={gray500}>Posts</Text>
+              </VStack>
+              <VStack>
+                <Text fontSize="xl" fontWeight="bold">
+                  {profile.averageRating.toFixed(1)}
+                </Text>
+                <Text color={gray500}>Média</Text>
+              </VStack>
+              <VStack>
+                <Text fontSize="xl" fontWeight="bold">{profile.ratingCount}</Text>
+                <Text color={gray500}>Avaliações</Text>
+              </VStack>
+            </HStack>
+
+            {/* Posts Grid */}
+            {profile?.posts && profile.posts.length > 0 && (
+              <Box mt={8} w="full">
+                <Text fontSize="xl" fontWeight="bold" mb={4}>
+                  Posts
+                </Text>
+                <Grid templateColumns="repeat(3, 1fr)" gap={4}>
+                  {profile.posts.map((post) => (
+                    <Link 
+                      key={post.id} 
+                      href={`/jogos/${post.id}`}
+                      style={{ textDecoration: 'none' }}
+                    >
+                      <Box
+                        bg={cardBg}
+                        rounded="lg"
+                        overflow="hidden"
+                        shadow="md"
+                        transition="transform 0.2s"
+                        _hover={{ transform: 'scale(1.02)' }}
+                        cursor="pointer"
+                      >
+                        <Image
+                          src={post.mainImage}
+                          alt={post.title}
+                          w="full"
+                          h="200px"
+                          objectFit="cover"
+                        />
+                        <Box p={4}>
+                          <Text fontWeight="bold" mb={2}>{post.title}</Text>
+                          <HStack mt={2} spacing={2}>
+                            <StarIcon color="yellow.400" />
+                            <Text>
+                              {post.ratings && post.ratings.length > 0
+                                ? (post.ratings.reduce((sum, r) => sum + r.rating, 0) / post.ratings.length).toFixed(1)
+                                : '0.0'}
+                            </Text>
+                            <Text color={gray500}>
+                              ({post.ratings?.length || 0})
+                            </Text>
+                          </HStack>
+                        </Box>
                       </Box>
-                    </Box>
-                  </Link>
-                ))}
-              </Grid>
-            </Box>
-          )}
-        </VStack>
+                    </Link>
+                  ))}
+                </Grid>
+              </Box>
+            )}
+          </VStack>
+        </Box>
       </Box>
-    </Box>
+    </Container>
   );
 };
 

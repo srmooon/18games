@@ -37,6 +37,7 @@ import {
   AlertDialogOverlay,
   Select,
   Flex,
+  Link,
 } from '@chakra-ui/react';
 import { keyframes } from '@emotion/react';
 import {
@@ -49,11 +50,11 @@ import {
   FiUserCheck,
 } from 'react-icons/fi';
 import { useState, useEffect } from 'react';
-import { 
-  collection, 
-  onSnapshot, 
-  doc, 
-  updateDoc, 
+import {
+  collection,
+  onSnapshot,
+  doc,
+  updateDoc,
   deleteDoc,
   query,
   orderBy,
@@ -62,11 +63,7 @@ import {
   getDocs
 } from 'firebase/firestore';
 import { db, functions } from '@/config/firebase';
-import { 
-  getAuth, 
-  updateEmail, 
-  updatePassword 
-} from 'firebase/auth';
+import { getAuth, updateEmail, updatePassword } from 'firebase/auth';
 import { useUserContext } from '@/contexts/UserContext';
 
 interface User {
@@ -196,13 +193,13 @@ export default function UserManagement() {
       orderBy('createdAt', 'desc')
     );
 
-    const unsubscribe = onSnapshot(usersQuery, 
+    const unsubscribe = onSnapshot(usersQuery,
       (snapshot) => {
         const usersData = snapshot.docs.map(doc => {
           const data = doc.data();
           const role = data.role || 'membro';
           const permissions = getRolePermissions(role);
-          
+
           return {
             uid: doc.id,
             ...data,
@@ -231,7 +228,7 @@ export default function UserManagement() {
 
   const handleAction = async () => {
     if (!selectedUser) return;
-    
+
     if (selectedUser.role === 'admin') {
       toast({
         title: 'Ação não permitida',
@@ -253,7 +250,7 @@ export default function UserManagement() {
             throw new Error('Email não pode estar vazio');
           }
           await updateEmail(getAuth().currentUser!, newEmail);
-          batch.update(userRef, { 
+          batch.update(userRef, {
             email: newEmail,
             updatedAt: new Date()
           });
@@ -264,27 +261,27 @@ export default function UserManagement() {
             throw new Error('Senha deve ter pelo menos 6 caracteres');
           }
           await updatePassword(getAuth().currentUser!, newPassword);
-          batch.update(userRef, { 
+          batch.update(userRef, {
             updatedAt: new Date()
           });
           break;
 
         case 'ban':
-          batch.update(userRef, { 
+          batch.update(userRef, {
             status: 'banned',
             updatedAt: new Date()
           });
           break;
 
         case 'disable':
-          batch.update(userRef, { 
+          batch.update(userRef, {
             status: 'disabled',
             updatedAt: new Date()
           });
           break;
 
         case 'activate':
-          batch.update(userRef, { 
+          batch.update(userRef, {
             status: 'active',
             updatedAt: new Date()
           });
@@ -298,15 +295,15 @@ export default function UserManagement() {
               where('userId', '==', selectedUser.uid)
             );
             const postsSnapshot = await getDocs(postsQuery);
-            
+
             // Add post deletions to batch
             postsSnapshot.docs.forEach(postDoc => {
               batch.delete(doc(db, 'posts', postDoc.id));
             });
-            
+
             // Add user document deletion to batch
             batch.delete(userRef);
-            
+
             // Commit Firestore changes
             await batch.commit();
 
@@ -331,7 +328,7 @@ export default function UserManagement() {
           if (!newRole) {
             throw new Error('Cargo não pode estar vazio');
           }
-          batch.update(userRef, { 
+          batch.update(userRef, {
             role: newRole,
             updatedAt: new Date()
           });
@@ -414,7 +411,11 @@ export default function UserManagement() {
               <Td>
                 <Flex align="center">
                   <Avatar size="sm" src={user.photoURL} name={user.displayName} />
-                  <Text ml={2}>{user.displayName}</Text>
+                  <Link href={`/profile/${user.uid}`} style={{ textDecoration: 'none' }}>
+                    <Text color="brand.500" _hover={{ textDecoration: 'underline' }}>
+                      {user.displayName}
+                    </Text>
+                  </Link>
                 </Flex>
               </Td>
               <Td>{user.email}</Td>

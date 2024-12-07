@@ -1,6 +1,6 @@
 'use client';
 
-import { Box, Container, Grid, Heading, Link, Text, VStack, Flex, Icon } from '@chakra-ui/react';
+import { Box, Container, Text, VStack, Grid, Heading, Link, Icon, Flex } from '@chakra-ui/react';
 import Layout from '@/components/Layout';
 import { FaDiscord, FaWindows, FaGlobe, FaStar } from 'react-icons/fa';
 import { SiAndroid } from 'react-icons/si';

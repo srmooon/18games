@@ -93,6 +93,8 @@ function JogosContent() {
             textAlign="center"
             bgGradient="linear(to-r, brand.500, purple.500)"
             bgClip="text"
+            mb={8}
+            lineHeight="1.4"
           >
             Jogos
           </Heading>

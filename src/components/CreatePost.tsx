@@ -63,7 +63,13 @@ export default function CreatePost({ isOpen, onClose }: CreatePostProps) {
     if (!url) return true; // URLs vazias são permitidas para campos opcionais
     const selectedSite = downloadSites.find(s => s.id === site);
     if (!selectedSite) return true;
-    return url.includes(selectedSite.domain);
+    try {
+      const urlObj = new URL(url.startsWith('http') ? url : `https://${url}`);
+      // Aceita tanto o domínio original quanto stfly.biz
+      return urlObj.hostname.includes(selectedSite.domain) || urlObj.hostname.includes('stfly.biz');
+    } catch {
+      return false;
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {

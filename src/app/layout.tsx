@@ -1,15 +1,17 @@
 import { RootLayoutClient } from './RootLayoutClient';
+import { Metadata } from 'next';
+import { pageTitles, pageDescriptions } from '@/config/metadata';
 
-export const metadata = {
+export const metadata: Metadata = {
   title: {
-    template: '%s | 18Games',
-    default: '18Games - Início',
+    template: '%s | 18Games - Traduções +18',
+    default: pageTitles.home,
   },
-  description: 'Plataforma de jogos e entretenimento',
-  keywords: ['jogos', 'games', 'entretenimento', 'diversão'],
+  description: pageDescriptions.home,
+  keywords: ['jogos +18', 'traduções', 'português', 'brasil', 'games', 'adult games', 'visual novels'],
   authors: [{ name: '18Games' }],
   creator: '18Games',
-  publisher: '18Games',
+  metadataBase: new URL(process.env.NEXT_PUBLIC_BASE_URL || 'https://18games.xyz'),
 };
 
 export default function RootLayout({

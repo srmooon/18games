@@ -7,34 +7,34 @@ import Layout from '@/components/Layout';
 interface TeamMember {
   name: string;
   role: string;
-  image: string;
   roleColor: string;
+  image: string;
 }
 
 const teamMembers: TeamMember[] = [
   {
     name: 'Baphomet',
     role: 'Dono',
-    image: 'https://files.catbox.moe/tqrqtt.jpg',
-    roleColor: 'red.500'
+    roleColor: 'red.500',
+    image: 'https://files.catbox.moe/tqrqtt.jpg'
   },
   {
     name: 'Hawtch',
-    role: 'Administrador',
-    image: 'https://files.catbox.moe/xse880.png',
-    roleColor: 'purple.500'
+    role: 'Admin',
+    roleColor: 'purple.500',
+    image: 'https://files.catbox.moe/xse880.png'
   },
   {
     name: 'Zero',
-    role: 'Moderador',
-    image: 'https://files.catbox.moe/9eu9xu.jpg',
-    roleColor: 'blue.500'
+    role: 'Admin',
+    roleColor: 'blue.500',
+    image: 'https://files.catbox.moe/9eu9xu.jpg'
   },
   {
     name: 'Sr.Moon',
-    role: 'Desenvolvedor',
-    image: 'https://files.catbox.moe/qc1pnz.gif',
-    roleColor: 'brand.500'
+    role: 'Admin',
+    roleColor: 'brand.500',
+    image: 'https://files.catbox.moe/qc1pnz.gif'
   }
 ];
 
@@ -82,6 +82,7 @@ export default function EquipePage() {
                   fill
                   style={{ objectFit: 'cover' }}
                   priority
+                  unoptimized
                 />
               </Box>
               <VStack p={4} spacing={2} align="center">

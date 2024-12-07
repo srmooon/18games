@@ -8,7 +8,9 @@ import {
   VStack, 
   HStack, 
   Tag, 
-  Avatar 
+  Avatar,
+  LinkBox,
+  LinkOverlay
 } from '@chakra-ui/react';
 import { motion, type HTMLMotionProps } from 'framer-motion';
 import { useRouter } from 'next/navigation';
@@ -16,6 +18,7 @@ import { gameTags } from '@/constants/gameTags';
 import { useState, useEffect } from 'react';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/config/firebase';
+import Link from 'next/link';
 
 type Merge<P, T> = Omit<P, keyof T> & T;
 type MotionBoxProps = Merge<HTMLMotionProps<"div">, Omit<React.ComponentProps<typeof Box>, "transition">>;
@@ -198,24 +201,28 @@ export default function GameCard({ game }: GameCardProps) {
             )}
           </HStack>
 
-          <HStack spacing={2} mt={2}>
-            <Avatar 
-              size="sm" 
-              src={userData?.photoURL || createdBy.photoURL}
-              name={userData?.displayName || createdBy.displayName}
-              bg="brand.500"
-              color="white"
-              border="2px"
-              borderColor="brand.500"
-            />
-            <VStack spacing={0} align="start">
-              <Text fontSize="sm" fontWeight="medium" color="white">
-                {userData?.displayName || createdBy.displayName}
-              </Text>
-              <Tag size="sm" colorScheme={getRoleColor(userData?.role || createdBy.role)}>
-                {userData?.role || createdBy.role}
-              </Tag>
-            </VStack>
+          <HStack spacing={2} mt={2} onClick={(e) => e.stopPropagation()}>
+            <Link href={`/profile/${game.createdBy?.uid}`} style={{ textDecoration: 'none' }}>
+              <HStack spacing={2} _hover={{ opacity: 0.8 }}>
+                <Avatar 
+                  size="sm" 
+                  src={userData?.photoURL || createdBy.photoURL}
+                  name={userData?.displayName || createdBy.displayName}
+                  bg="brand.500"
+                  color="white"
+                  border="2px"
+                  borderColor="brand.500"
+                />
+                <VStack spacing={0} align="start">
+                  <Text fontSize="sm" fontWeight="medium" color="white">
+                    {userData?.displayName || createdBy.displayName}
+                  </Text>
+                  <Tag size="sm" colorScheme={getRoleColor(userData?.role || createdBy.role)}>
+                    {userData?.role || createdBy.role}
+                  </Tag>
+                </VStack>
+              </HStack>
+            </Link>
             <Text fontSize="sm" color="gray.500" ml="auto">
               {formatDate(game.createdAt)}
             </Text>
