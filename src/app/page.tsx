@@ -2,12 +2,16 @@
 
 import { Box, Container, Text, VStack } from '@chakra-ui/react';
 import { motion } from 'framer-motion';
+import Layout from '@/components/Layout';
+import { useUserContext } from '@/contexts/UserContext';
 
 const MotionBox = motion(Box);
 
 export default function HomePage() {
+  const { user } = useUserContext();
+
   return (
-    <Box minH="100vh" bg="gray.900">
+    <Layout user={user}>
       <Container maxW="container.xl" pt={20}>
         <MotionBox
           initial={{ opacity: 0, y: 20 }}
@@ -63,6 +67,6 @@ export default function HomePage() {
           </VStack>
         </MotionBox>
       </Container>
-    </Box>
+    </Layout>
   );
 }

@@ -9,6 +9,7 @@ import GameCard from '@/components/GameCard';
 import { useGames } from '@/hooks/useGames';
 import { useUserContext } from '@/contexts/UserContext';
 import { gameTags, tagCategories } from '@/constants/gameTags';
+import Layout from '@/components/Layout';
 
 function JogosContent() {
   const { user } = useAuth();
@@ -24,13 +25,13 @@ function JogosContent() {
 
   if (!mounted) {
     return (
-      <Box minH="100vh" py={20} px={4} bg="gray.900">
+      <Layout user={user}>
         <Container maxW="container.xl">
           <VStack spacing={8} align="center">
             <Spinner size="xl" color="brand.500" />
           </VStack>
         </Container>
-      </Box>
+      </Layout>
     );
   }
 
@@ -53,19 +54,19 @@ function JogosContent() {
 
   if (loading) {
     return (
-      <Box minH="100vh" py={20} px={4} bg="gray.900">
+      <Layout user={user}>
         <Container maxW="container.xl">
           <VStack spacing={8} align="center">
             <Spinner size="xl" color="brand.500" />
           </VStack>
         </Container>
-      </Box>
+      </Layout>
     );
   }
 
   if (error) {
     return (
-      <Box minH="100vh" py={20} px={4} bg="gray.900">
+      <Layout user={user}>
         <Container maxW="container.xl">
           <VStack spacing={8} align="center">
             <Heading
@@ -79,12 +80,12 @@ function JogosContent() {
             <Text color="white">{error}</Text>
           </VStack>
         </Container>
-      </Box>
+      </Layout>
     );
   }
 
   return (
-    <Box minH="100vh" py={20} px={4} bg="gray.900">
+    <Layout user={user}>
       <Container maxW="container.xl">
         <VStack spacing={8} align="stretch">
           <Heading
@@ -173,20 +174,20 @@ function JogosContent() {
           <CreatePost isOpen={isOpen} onClose={onClose} />
         </VStack>
       </Container>
-    </Box>
+    </Layout>
   );
 }
 
 export default function JogosPage() {
   return (
     <Suspense fallback={
-      <Box minH="100vh" py={20} px={4} bg="gray.900">
+      <Layout user={null}>
         <Container maxW="container.xl">
           <VStack spacing={8} align="center">
             <Spinner size="xl" color="brand.500" />
           </VStack>
         </Container>
-      </Box>
+      </Layout>
     }>
       <JogosContent />
     </Suspense>
