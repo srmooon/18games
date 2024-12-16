@@ -39,7 +39,7 @@ service cloud.firestore {
     match /users/{userId} {
       // Permite leitura pública dos perfis
       allow read: if true;
-      allow list: if isUsernameQuery(); // Adicionado para permitir verificação de username
+      allow list: if isUsernameQuery();  // Adicionado para verificação de username
       
       // Permite criação e atualização pelo próprio usuário ou admin
       allow create: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
@@ -70,6 +70,16 @@ service cloud.firestore {
         isPostAuthor(resource.data.userId) || 
         isAdmin()
       );
+
+      // Regras para comentários (subcoleção)
+      match /comments/{commentId} {
+        allow read: if true;
+        allow create: if isAuthenticated();
+        allow update, delete: if isAuthenticated() && (
+          request.auth.uid == resource.data.userId || 
+          isAdmin()
+        );
+      }
     }
   }
 }

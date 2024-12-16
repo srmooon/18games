@@ -107,16 +107,40 @@ export default function CreatePost({ isOpen, onClose }: CreatePostProps) {
 
   const handleUploadSuccess = (result: any) => {
     if (result?.info?.secure_url) {
-      setImageUrl(result.info.secure_url);
+      const imageUrl = result.info.secure_url;
+      const isGif = imageUrl.toLowerCase().endsWith('.gif');
+
+      if (isGif && (!currentUser?.role || currentUser.role !== 'vip+')) {
+        toast({
+          title: 'Erro',
+          description: 'Apenas usuários VIP+ podem usar GIFs como capa',
+          status: 'error',
+          duration: 3000,
+        });
+        return;
+      }
+
+      setImageUrl(imageUrl);
     }
   };
 
   const toggleTag = (tagId: string) => {
-    setSelectedTags(prev => 
-      prev.includes(tagId)
-        ? prev.filter(id => id !== tagId)
-        : [...prev, tagId]
-    );
+    setSelectedTags(prev => {
+      if (prev.includes(tagId)) {
+        return prev.filter(id => id !== tagId);
+      } else {
+        if (prev.length >= 10) {
+          toast({
+            title: 'Limite de tags',
+            description: 'Você pode selecionar no máximo 10 tags',
+            status: 'warning',
+            duration: 3000,
+          });
+          return prev;
+        }
+        return [...prev, tagId];
+      }
+    });
   };
 
   if (!canCreatePost) {
@@ -160,10 +184,17 @@ export default function CreatePost({ isOpen, onClose }: CreatePostProps) {
               <CldUploadWidget
                 uploadPreset="18games_preset"
                 onSuccess={handleUploadSuccess}
+                options={{
+                  maxFiles: 1,
+                  resourceType: "image",
+                  clientAllowedFormats: currentUser?.role === 'vip+' 
+                    ? ["png", "jpg", "jpeg", "gif"] 
+                    : ["png", "jpg", "jpeg"]
+                }}
               >
                 {({ open }) => (
                   <Button onClick={() => open()} width="full">
-                    Upload Imagem
+                    Upload Imagem {currentUser?.role === 'vip+' && '(GIFs permitidos)'}
                   </Button>
                 )}
               </CldUploadWidget>

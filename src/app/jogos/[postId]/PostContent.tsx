@@ -34,10 +34,11 @@ import { FaDownload, FaStar, FaUser } from 'react-icons/fa';
 import { useRouter } from 'next/navigation';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth, db } from '@/config/firebase';
-import { doc, getDoc, updateDoc, increment, deleteDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, increment, deleteDoc, collection, getDocs, writeBatch } from 'firebase/firestore';
 import { useUserContext } from '@/contexts/UserContext';
 import CreatePost from '../CreatePost';
 import { EditIcon, DeleteIcon } from '@chakra-ui/icons';
+import Comments from '@/components/Comments';
 
 interface Post {
   id?: string;
@@ -251,7 +252,9 @@ export default function PostContent({ postId }: PostContentProps) {
     }
   };
 
-  const canRate = firebaseUser && profile?.role && ['membro+', 'vip', 'vip+'].includes(profile.role);
+  const canRate = firebaseUser && profile?.role && post && 
+    ['membro+', 'vip', 'vip+', 'admin'].includes(profile.role) && 
+    firebaseUser.uid !== post.userId;
 
   const canDeletePost = firebaseUser && post && (
     firebaseUser.uid === post.userId || 
@@ -264,10 +267,21 @@ export default function PostContent({ postId }: PostContentProps) {
   );
 
   const handleRating = async (newRating: number) => {
-    if (!firebaseUser) {
+    if (!firebaseUser || !post) {
       toast({
         title: 'Erro',
         description: 'Você precisa estar logado para avaliar.',
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      });
+      return;
+    }
+
+    if (firebaseUser.uid === post.userId) {
+      toast({
+        title: 'Erro',
+        description: 'Você não pode avaliar seu próprio post.',
         status: 'error',
         duration: 5000,
         isClosable: true,
@@ -331,6 +345,13 @@ export default function PostContent({ postId }: PostContentProps) {
       });
 
       setUserRating(newRating);
+      
+      toast({
+        title: 'Sucesso',
+        description: 'Avaliação registrada com sucesso!',
+        status: 'success',
+        duration: 3000,
+      });
     } catch (error) {
       console.error('Erro ao avaliar:', error);
       toast({
@@ -355,12 +376,24 @@ export default function PostContent({ postId }: PostContentProps) {
       // Calcular total de avaliações a serem removidas
       const totalRatingsToRemove = ratings.length;
 
+      // Primeiro, excluir todos os comentários do post
+      const commentsRef = collection(db, `posts/${post.id}/comments`);
+      const commentsSnapshot = await getDocs(commentsRef);
+      const batch = writeBatch(db);
+
+      commentsSnapshot.docs.forEach((doc) => {
+        batch.delete(doc.ref);
+      });
+
       // Atualizar o perfil do autor do post
       const authorRef = doc(db, 'users', post.userId);
       await updateDoc(authorRef, {
         ratingCount: increment(-totalRatingsToRemove),
         postCount: increment(-1)
       });
+
+      // Executar o batch para deletar todos os comentários
+      await batch.commit();
 
       // Deletar o post
       await deleteDoc(postRef);
@@ -640,6 +673,11 @@ export default function PostContent({ postId }: PostContentProps) {
                 </ModalFooter>
               </ModalContent>
             </Modal>
+
+            {/* Seção de Comentários */}
+            <Box mt={8}>
+              <Comments postId={postId} postAuthorId={post.userId} />
+            </Box>
           </Box>
         </Box>
       )}

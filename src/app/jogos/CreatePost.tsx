@@ -195,6 +195,8 @@ const CreatePost = ({ isOpen, onClose, editPost }: CreatePostProps) => {
     if (!mainImage) errors.mainImage = "Imagem principal é obrigatória";
     if (!downloadSite) errors.downloadSite = "Site de download é obrigatório";
     if (!downloadUrl) errors.downloadUrl = "Link de download é obrigatório";
+    if (selectedTags.length === 0) errors.tags = "Selecione pelo menos uma tag";
+    if (selectedTags.length > 10) errors.tags = "Selecione no máximo 10 tags";
     
     // Validar URL principal
     if (downloadUrl && !validateDownloadUrl(downloadUrl, downloadSite)) {
@@ -342,6 +344,25 @@ const CreatePost = ({ isOpen, onClose, editPost }: CreatePostProps) => {
     setPatchUrl("");
   };
 
+  const handleUploadSuccess = (result: any) => {
+    if (result?.info?.secure_url) {
+      const imageUrl = result.info.secure_url;
+      const isGif = imageUrl.toLowerCase().endsWith('.gif');
+
+      if (isGif && (!user?.role || user.role !== 'vip+')) {
+        toast({
+          title: 'Erro',
+          description: 'Apenas usuários VIP+ podem usar GIFs como capa',
+          status: 'error',
+          duration: 3000,
+        });
+        return;
+      }
+
+      setMainImage(imageUrl);
+    }
+  };
+
   return (
     <Modal isOpen={isOpen} onClose={onClose} size="2xl">
       <style jsx global>{`
@@ -443,16 +464,7 @@ const CreatePost = ({ isOpen, onClose, editPost }: CreatePostProps) => {
                       onUpload={(result: any) => {
                         logger.debug('Upload callback acionado', { result });
                       }}
-                      onSuccess={(result: any) => {
-                        logger.info('Upload concluído com sucesso', { result });
-                        if (result.info) {
-                          const imageUrl = result.info.secure_url;
-                          logger.debug('URL da imagem', { imageUrl });
-                          setMainImage(imageUrl);
-                          setFormErrors(prev => ({ ...prev, mainImage: '' }));
-                          setShowMainImageWidget(false);
-                        }
-                      }}
+                      onSuccess={handleUploadSuccess}
                       onError={(error: any) => {
                         logger.error('Erro no upload', { error });
                         toast({
@@ -660,10 +672,20 @@ const CreatePost = ({ isOpen, onClose, editPost }: CreatePostProps) => {
                             onClick={() => {
                               if (selectedTags.includes(tag.id)) {
                                 setSelectedTags(selectedTags.filter(t => t !== tag.id));
+                                setFormErrors(prev => ({ ...prev, tags: '' }));
                               } else {
+                                if (selectedTags.length >= 10) {
+                                  toast({
+                                    title: 'Limite de tags',
+                                    description: 'Você pode selecionar no máximo 10 tags',
+                                    status: 'warning',
+                                    duration: 3000,
+                                  });
+                                  return;
+                                }
                                 setSelectedTags([...selectedTags, tag.id]);
+                                setFormErrors(prev => ({ ...prev, tags: '' }));
                               }
-                              setFormErrors(prev => ({ ...prev, tags: '' }));
                             }}
                           >
                             <TagLabel>{tag.label}</TagLabel>

@@ -105,39 +105,45 @@ export default function PostManagement() {
     if (!selectedPost) return;
 
     try {
-      // Delete images from storage
-      if (selectedPost.imageUrl) {
-        try {
-          const imageRef = ref(getStorage(), selectedPost.imageUrl);
-          await deleteObject(imageRef);
-        } catch (error) {
-          console.error('Error deleting main image:', error);
-        }
-      }
+      // Primeiro, excluir todos os comentários do post
+      const commentsRef = collection(db, `posts/${selectedPost.id}/comments`);
+      const commentsSnapshot = await getDocs(commentsRef);
+      const batch = writeBatch(db);
 
-      // Delete document from Firestore
-      const postRef = doc(db, 'posts', selectedPost.id);
-      await deleteDoc(postRef);
+      commentsSnapshot.docs.forEach((doc) => {
+        batch.delete(doc.ref);
+      });
 
-      // Update local state
-      setPosts(posts.filter(post => post.id !== selectedPost.id));
-      
+      // Atualizar o perfil do autor do post
+      const authorRef = doc(db, 'users', selectedPost.userId);
+      await updateDoc(authorRef, {
+        postCount: increment(-1),
+        ratingCount: increment(-(selectedPost.ratings?.length || 0))
+      });
+
+      // Executar o batch para deletar todos os comentários
+      await batch.commit();
+
+      // Deletar o post
+      await deleteDoc(doc(db, 'posts', selectedPost.id));
+
       toast({
-        title: 'Post deletado',
-        description: 'O post foi removido com sucesso.',
+        title: 'Sucesso',
+        description: 'Post excluído com sucesso',
         status: 'success',
-        duration: 5000,
+        duration: 3000,
         isClosable: true,
       });
 
       onDeleteClose();
+      setSelectedPost(null);
     } catch (error) {
-      console.error('Error deleting post:', error);
+      console.error('Erro ao excluir post:', error);
       toast({
-        title: 'Erro ao deletar post',
-        description: error instanceof Error ? error.message : 'Ocorreu um erro ao tentar deletar o post. Verifique suas permissões.',
+        title: 'Erro',
+        description: 'Não foi possível excluir o post',
         status: 'error',
-        duration: 5000,
+        duration: 3000,
         isClosable: true,
       });
     }
